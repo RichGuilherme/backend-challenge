@@ -41,7 +41,7 @@ export interface RejectProps {
   code: FailureCode;
   at: Date;
   observedBalance: Money;
-  referenceTransactionId?: string;
+  referenceTransactionId?: string | undefined;
 }
 
 export interface FailProps {
