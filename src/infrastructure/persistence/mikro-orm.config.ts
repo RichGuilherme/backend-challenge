@@ -1,6 +1,7 @@
 import { Migrator } from "@mikro-orm/migrations";
 import { defineConfig, type Options } from "@mikro-orm/postgresql";
 import { migrations } from "../../../migrations";
+import { persistenceRecords } from "./records";
 import type { DatabaseConfig } from "../../shared/config/env";
 
 export function createMikroOrmOptions(database: DatabaseConfig): Options {
@@ -10,8 +11,7 @@ export function createMikroOrmOptions(database: DatabaseConfig): Options {
     dbName: database.name,
     user: database.user,
     password: database.password,
-    entities: [],
-    discovery: { warnWhenNoEntities: false },
+    entities: persistenceRecords,
     extensions: [Migrator],
     migrations: {
       tableName: "mikro_orm_migrations",

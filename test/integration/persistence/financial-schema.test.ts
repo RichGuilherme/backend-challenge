@@ -134,7 +134,7 @@ describe("schema financeiro", () => {
       await orm.migrator.up();
       expect(await tableExists("wallet_ledger_entries")).toBe(true);
 
-      await orm.migrator.down();
+      await orm.migrator.down({ to: 0 });
       for (const table of ["wallets", "wager_transactions", "wallet_ledger_entries"]) {
         expect(await tableExists(table)).toBe(false);
       }
