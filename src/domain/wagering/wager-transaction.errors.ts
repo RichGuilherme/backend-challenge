@@ -23,3 +23,13 @@ export class InvalidTransactionStateError extends DomainError {
 }
 
 export class InvalidWagerTransactionError extends DomainError {}
+
+export class DuplicateWagerTransactionError extends DomainError {
+  constructor(
+    readonly idempotencyKey: string,
+    readonly providerId: string,
+    readonly externalTransactionId: string,
+  ) {
+    super(`Transação já registrada: chave ${idempotencyKey} ou ${providerId}/${externalTransactionId}`);
+  }
+}

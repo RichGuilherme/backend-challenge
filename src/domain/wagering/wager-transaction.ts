@@ -49,6 +49,18 @@ export interface FailProps {
   at: Date;
 }
 
+export interface OpeningProps {
+  id: string;
+  walletId: string;
+  playerId: string;
+  money: Money;
+  at: Date;
+}
+
+export const OPENING_PROVIDER_ID = "internal";
+const OPENING_GAME: GameContext = { roundId: "opening", gameId: "opening" };
+const OPENING_PAYLOAD_HASH = "opening";
+
 const PENDING_OUTCOME: WagerTransactionOutcome = {
   status: WagerTransactionStatus.Pending,
   referenceTransactionId: undefined,
@@ -103,6 +115,32 @@ export class WagerTransaction {
   static create(props: CreateWagerTransactionProps): WagerTransaction {
     WagerTransaction.assertSubmittable(props);
     return new WagerTransaction({ ...props, outcome: PENDING_OUTCOME });
+  }
+
+  static opening(props: OpeningProps): WagerTransaction {
+    if (!props.money.isPositive()) {
+      throw new InvalidWagerTransactionError(`Abertura exige saldo inicial positivo: ${props.money}`);
+    }
+    return new WagerTransaction({
+      id: props.id,
+      provider: { providerId: OPENING_PROVIDER_ID, externalTransactionId: props.walletId },
+      idempotencyKey: `opening:${props.walletId}`,
+      payloadHash: OPENING_PAYLOAD_HASH,
+      walletId: props.walletId,
+      playerId: props.playerId,
+      game: OPENING_GAME,
+      kind: WagerTransactionKind.Opening,
+      money: props.money,
+      referenceExternalTransactionId: undefined,
+      createdAt: props.at,
+      outcome: {
+        status: WagerTransactionStatus.Processed,
+        referenceTransactionId: undefined,
+        failureCode: undefined,
+        observedBalance: props.money,
+        processedAt: props.at,
+      },
+    });
   }
 
   static rehydrate(state: WagerTransactionState): WagerTransaction {
@@ -219,6 +257,9 @@ export class WagerTransaction {
   private static assertSubmittable(props: CreateWagerTransactionProps): void {
     if (props.kind === WagerTransactionKind.Opening) {
       throw new InvalidWagerTransactionError("OPENING é interno e não pode ser submetido");
+    }
+    if (props.provider.providerId === OPENING_PROVIDER_ID) {
+      throw new InvalidWagerTransactionError(`Provider ${OPENING_PROVIDER_ID} é reservado à abertura de wallet`);
     }
     if (!props.money.isPositive()) {
       throw new InvalidWagerTransactionError(`Valor da transação deve ser positivo: ${props.money}`);

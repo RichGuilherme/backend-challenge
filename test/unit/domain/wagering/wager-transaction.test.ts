@@ -6,6 +6,7 @@ import { FailureCode } from "../../../../src/domain/wagering/failure-code";
 import { WagerTransactionKind } from "../../../../src/domain/wagering/wager-transaction-kind";
 import { WagerTransactionStatus } from "../../../../src/domain/wagering/wager-transaction-status";
 import {
+  OPENING_PROVIDER_ID,
   WagerTransaction,
   type CreateWagerTransactionProps,
 } from "../../../../src/domain/wagering/wager-transaction";
@@ -84,6 +85,47 @@ describe("WagerTransaction", () => {
 
     test("OPENING não pode ser criado por create", () => {
       expect(() => bet({ kind: WagerTransactionKind.Opening })).toThrow(InvalidWagerTransactionError);
+    });
+
+    test("provider interno é reservado ao OPENING", () => {
+      expect(() => bet({ provider: { providerId: OPENING_PROVIDER_ID, externalTransactionId: "ext-1" } })).toThrow(
+        InvalidWagerTransactionError,
+      );
+    });
+  });
+
+  describe("opening", () => {
+    test("nasce PROCESSED, do provider interno, com o saldo inicial como saldo observado", () => {
+      const tx = WagerTransaction.opening({
+        id: "tx-opening",
+        walletId: "wallet-1",
+        playerId: "player-1",
+        money: brl("100.00"),
+        at: createdAt,
+      });
+
+      expect(tx.kind).toBe(WagerTransactionKind.Opening);
+      expect(tx.status).toBe(WagerTransactionStatus.Processed);
+      expect(tx.provider).toEqual({ providerId: OPENING_PROVIDER_ID, externalTransactionId: "wallet-1" });
+      expect(tx.idempotencyKey).toBe("opening:wallet-1");
+      expect(tx.game).toEqual({ roundId: "opening", gameId: "opening" });
+      expect(tx.walletId).toBe("wallet-1");
+      expect(tx.playerId).toBe("player-1");
+      expect(tx.observedBalance?.equals(brl("100.00"))).toBe(true);
+      expect(tx.processedAt).toEqual(createdAt);
+      expect(tx.ledgerDirectionFor()).toBe(LedgerDirection.Credit);
+    });
+
+    test("exige valor positivo", () => {
+      expect(() =>
+        WagerTransaction.opening({
+          id: "tx-opening",
+          walletId: "wallet-1",
+          playerId: "player-1",
+          money: Money.zero("BRL"),
+          at: createdAt,
+        }),
+      ).toThrow(InvalidWagerTransactionError);
     });
 
     test.each(Object.values(WagerTransactionKind).filter((kind) => kind !== WagerTransactionKind.Opening))(
