@@ -6,9 +6,12 @@ import {
   type DatabaseConfig,
 } from "../../src/shared/config/env";
 
+const TEST_SUFFIX = "_test";
+
 export function testDatabaseConfig(): DatabaseConfig {
   const config = loadDatabaseConfig();
-  return { ...config, name: `${config.name}_test` };
+  const name = config.name.endsWith(TEST_SUFFIX) ? config.name : `${config.name}${TEST_SUFFIX}`;
+  return { ...config, name };
 }
 
 function connect(config: DatabaseConfig): SQL {

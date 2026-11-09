@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
 import type { Clock } from "../application/ports/clock";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { UnitOfWork } from "../application/ports/unit-of-work";
@@ -8,12 +9,17 @@ import { GetWalletUseCase } from "../application/wallet/get-wallet.use-case";
 import { OpenWalletUseCase } from "../application/wallet/open-wallet.use-case";
 import { SystemClock } from "../infrastructure/system/system-clock";
 import { UuidV7IdGenerator } from "../infrastructure/system/uuid-v7-id-generator";
+import { HttpErrorFilter } from "../presentation/http/http-error.filter";
+import { WageringTransactionsController } from "../presentation/http/wagering-transactions.controller";
+import { WalletsController } from "../presentation/http/wallets.controller";
 import { PersistenceModule } from "./persistence.module";
 import { CLOCK, ID_GENERATOR, UNIT_OF_WORK } from "./tokens";
 
 @Module({
   imports: [PersistenceModule],
+  controllers: [WalletsController, WageringTransactionsController],
   providers: [
+    { provide: APP_FILTER, useClass: HttpErrorFilter },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
     {
