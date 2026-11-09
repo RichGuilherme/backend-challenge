@@ -1,22 +1,18 @@
-export class InvalidMoneyAmountError extends Error {
-  override readonly name = "InvalidMoneyAmountError";
+import { DomainError } from "../domain-error";
 
+export class InvalidMoneyAmountError extends DomainError {
   constructor(readonly amount: unknown) {
     super(`Valor monetário inválido: ${JSON.stringify(amount)}`);
   }
 }
 
-export class InvalidCurrencyError extends Error {
-  override readonly name = "InvalidCurrencyError";
-
+export class InvalidCurrencyError extends DomainError {
   constructor(readonly currency: unknown) {
     super(`Moeda inválida: ${JSON.stringify(currency)}`);
   }
 }
 
-export class CurrencyMismatchError extends Error {
-  override readonly name = "CurrencyMismatchError";
-
+export class CurrencyMismatchError extends DomainError {
   constructor(
     readonly expected: string,
     readonly received: string,

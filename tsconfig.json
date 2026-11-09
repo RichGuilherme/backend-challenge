@@ -12,11 +12,12 @@
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": true,
     "useUnknownInCatchVariables": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
 
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
-    "verbatimModuleSyntax": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

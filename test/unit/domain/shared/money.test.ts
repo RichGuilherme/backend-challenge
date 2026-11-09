@@ -1,13 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { Money } from "../../../src/domain/money/money";
+import { Money } from "../../../../src/domain/shared/money/money";
 import {
   CurrencyMismatchError,
   InvalidCurrencyError,
   InvalidMoneyAmountError,
-} from "../../../src/domain/money/money.errors";
+} from "../../../../src/domain/shared/money/money.errors";
+import { brl, usd } from "../../../support/money";
 
-const brl = (amount: string) => Money.from({ amount, currency: "BRL" });
-const usd = (amount: string) => Money.from({ amount, currency: "USD" });
 
 describe("Money", () => {
   describe("from: normalização para 2 casas", () => {
