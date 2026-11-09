@@ -14,6 +14,8 @@
     "test:unit": "bun test test/unit",
     "test:integration": "bun test test/integration",
     "test:concurrency": "bun test test/concurrency",
+    "db:migrate": "bun run src/main/migrate.ts up",
+    "db:rollback": "bun run src/main/migrate.ts down",
     "infra:up": "docker compose up -d --wait postgres localstack",
     "infra:down": "docker compose down -v"
   },
