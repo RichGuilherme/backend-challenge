@@ -23,3 +23,12 @@ export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Databa
     password: requireEnv("DB_PASSWORD", env),
   };
 }
+
+export function loadLockTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = requireEnv("DB_LOCK_TIMEOUT_MS", env);
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0 || String(value) !== raw) {
+    throw new Error(`DB_LOCK_TIMEOUT_MS inválido: ${raw}`);
+  }
+  return value;
+}
