@@ -85,6 +85,18 @@ export const PendingReferenceRecord = defineEntity({
   },
 });
 
+export const InboxMessageRecord = defineEntity({
+  name: "InboxMessageRecord",
+  tableName: "inbox_messages",
+  properties: {
+    consumerName: p.string().primary(),
+    messageId: p.string().primary(),
+    payloadHash: p.string(),
+    receivedAt: p.datetime(),
+    processedAt: p.datetime().nullable(),
+  },
+});
+
 export type WalletRow = InferEntity<typeof WalletRecord>;
 export type WagerTransactionRow = InferEntity<typeof WagerTransactionRecord>;
 export type WalletLedgerEntryRow = InferEntity<typeof WalletLedgerEntryRecord>;
@@ -97,4 +109,5 @@ export const persistenceRecords = [
   WalletLedgerEntryRecord,
   OutboxMessageRecord,
   PendingReferenceRecord,
+  InboxMessageRecord,
 ];

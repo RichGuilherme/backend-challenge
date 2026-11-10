@@ -20,6 +20,12 @@ x-app-environment: &app-environment
   PENDING_REFERENCE_TTL_MS: ${PENDING_REFERENCE_TTL_MS:-86400000}
   PENDING_REFERENCE_RETRY_BASE_MS: ${PENDING_REFERENCE_RETRY_BASE_MS:-2000}
   PENDING_REFERENCE_RETRY_CAP_MS: ${PENDING_REFERENCE_RETRY_CAP_MS:-600000}
+  SQS_QUEUE_NAME: wager-transactions.fifo
+  SQS_DLQ_NAME: wager-transactions-dlq.fifo
+  SQS_CONSUMER_BATCH_SIZE: ${SQS_CONSUMER_BATCH_SIZE:-10}
+  SQS_CONSUMER_WAIT_SECONDS: ${SQS_CONSUMER_WAIT_SECONDS:-1}
+  SQS_RETRY_BASE_MS: ${SQS_RETRY_BASE_MS:-1000}
+  SQS_RETRY_CAP_MS: ${SQS_RETRY_CAP_MS:-60000}
 
 x-app-service: &app-service
   build:
@@ -80,6 +86,12 @@ services:
   reference-worker:
     <<: *app-service
     command: ["bun", "run", "src/main/reference-worker.ts"]
+    environment:
+      <<: *app-environment
+
+  consumer:
+    <<: *app-service
+    command: ["bun", "run", "src/main/consumer.ts"]
     environment:
       <<: *app-environment
 

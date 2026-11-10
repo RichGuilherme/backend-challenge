@@ -10,7 +10,7 @@ import {
   submitWagerTransactionSchema,
   uuidSchema,
   type SubmitWagerTransactionBody,
-} from "./schemas";
+} from "../schemas";
 import { ZodValidationPipe } from "./zod-validation.pipe";
 
 interface StatusResponse {

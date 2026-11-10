@@ -3,7 +3,7 @@ import { GetWalletUseCase } from "../../application/wallet/get-wallet.use-case";
 import { OpenWalletUseCase } from "../../application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../application/wallet/wallet.view";
 import { CORRELATION_ID_HEADER, resolveCorrelationId } from "./correlation-id";
-import { createWalletSchema, uuidSchema, type CreateWalletBody } from "./schemas";
+import { createWalletSchema, uuidSchema, type CreateWalletBody } from "../schemas";
 import { ZodValidationPipe } from "./zod-validation.pipe";
 
 @Controller("wallets")

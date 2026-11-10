@@ -11,6 +11,7 @@
     "start": "bun run src/main/main.ts",
     "start:outbox-publisher": "bun run src/main/outbox-publisher.ts",
     "start:reference-worker": "bun run src/main/reference-worker.ts",
+    "start:consumer": "bun run src/main/consumer.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:unit": "bun test test/unit",

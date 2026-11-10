@@ -1,5 +1,6 @@
 import type { WagerTransactionRepository } from "../../domain/wagering/wager-transaction.repository";
 import type { WalletRepository } from "../../domain/wallet/wallet.repository";
+import type { InboxRepository } from "./inbox.repository";
 import type { OutboxRepository } from "./outbox.repository";
 import type { PendingReferenceRepository } from "./pending-reference.repository";
 
@@ -8,6 +9,7 @@ export interface TransactionScope {
   transactions: WagerTransactionRepository;
   outbox: OutboxRepository;
   pendingReferences: PendingReferenceRepository;
+  inbox: InboxRepository;
 }
 
 export interface UnitOfWork {

@@ -22,6 +22,10 @@ export interface SubmitWagerTransactionCommand extends WagerTransactionPayload, 
   kind: WagerTransactionKind;
 }
 
+export interface SubmitOptions {
+  withinTransaction?: (scope: TransactionScope, result: SubmissionResult) => Promise<void>;
+}
+
 export class SubmitWagerTransactionUseCase {
   private readonly settlement = new WagerSettlement();
 
@@ -33,14 +37,25 @@ export class SubmitWagerTransactionUseCase {
     private readonly random: RandomSource = Math.random,
   ) {}
 
-  async execute(command: SubmitWagerTransactionCommand): Promise<SubmissionResult> {
+  async execute(command: SubmitWagerTransactionCommand, options: SubmitOptions = {}): Promise<SubmissionResult> {
     const payloadHash = computePayloadHash(command);
     try {
-      return await this.unitOfWork.run((scope) => this.submit(scope, command, payloadHash));
+      return await this.runWith(options, (scope) => this.submit(scope, command, payloadHash));
     } catch (error) {
       if (!(error instanceof DuplicateWagerTransactionError)) throw error;
-      return this.unitOfWork.run((scope) => this.replayAfterRace(scope, command, payloadHash));
+      return this.runWith(options, (scope) => this.replayAfterRace(scope, command, payloadHash));
     }
+  }
+
+  private runWith(
+    options: SubmitOptions,
+    work: (scope: TransactionScope) => Promise<SubmissionResult>,
+  ): Promise<SubmissionResult> {
+    return this.unitOfWork.run(async (scope) => {
+      const result = await work(scope);
+      await options.withinTransaction?.(scope, result);
+      return result;
+    });
   }
 
   private async submit(

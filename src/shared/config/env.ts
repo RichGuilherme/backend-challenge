@@ -84,3 +84,24 @@ export function loadPendingReferenceConfig(env: Env = process.env): PendingRefer
     },
   };
 }
+
+export interface ConsumerConfig {
+  queueName: string;
+  deadLetterQueueName: string;
+  batchSize: number;
+  waitSeconds: number;
+  retry: { baseMs: number; capMs: number };
+}
+
+export function loadConsumerConfig(env: Env = process.env): ConsumerConfig {
+  return {
+    queueName: requireEnv("SQS_QUEUE_NAME", env),
+    deadLetterQueueName: requireEnv("SQS_DLQ_NAME", env),
+    batchSize: requirePositiveInteger("SQS_CONSUMER_BATCH_SIZE", env),
+    waitSeconds: requirePositiveInteger("SQS_CONSUMER_WAIT_SECONDS", env),
+    retry: {
+      baseMs: requirePositiveInteger("SQS_RETRY_BASE_MS", env),
+      capMs: requirePositiveInteger("SQS_RETRY_CAP_MS", env),
+    },
+  };
+}

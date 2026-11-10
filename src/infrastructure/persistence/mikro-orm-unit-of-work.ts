@@ -2,6 +2,7 @@ import { DeadlockException, DriverException, LockWaitTimeoutException } from "@m
 import type { MikroORM } from "@mikro-orm/postgresql";
 import type { TransactionScope, UnitOfWork } from "../../application/ports/unit-of-work";
 import { TransientFailureError } from "../../application/shared/application-error";
+import { MikroOrmInboxRepository } from "./mikro-orm-inbox.repository";
 import { MikroOrmOutboxRepository } from "./mikro-orm-outbox.repository";
 import { MikroOrmPendingReferenceRepository } from "./mikro-orm-pending-reference.repository";
 import { MikroOrmWagerTransactionRepository } from "./mikro-orm-wager-transaction.repository";
@@ -28,6 +29,7 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
           transactions: new MikroOrmWagerTransactionRepository(em),
           outbox: new MikroOrmOutboxRepository(em),
           pendingReferences: new MikroOrmPendingReferenceRepository(em),
+          inbox: new MikroOrmInboxRepository(em),
         });
       });
     } catch (error) {
