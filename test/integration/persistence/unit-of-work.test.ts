@@ -25,7 +25,11 @@ afterAll(() => context?.close());
 const newPlayer = () => `player-${crypto.randomUUID()}`;
 
 const openWith = (amount: string): Promise<WalletView> =>
-  openWallet.execute({ playerId: newPlayer(), correlationId: "test-correlation", initialBalance: { amount, currency: "BRL" } });
+  openWallet.execute({
+    playerId: newPlayer(),
+    correlationId: "test-correlation",
+    initialBalance: { amount, currency: "BRL" },
+  });
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
@@ -135,13 +139,23 @@ describe("MikroOrmUnitOfWork e repositórios", () => {
 
     await context.unitOfWork.run(async ({ wallets, transactions }) => {
       const transactionId = await insertBet(transactions, view, "10.00");
-      const entry = fresh.debit({ entryId: context.ids.next(), transactionId, money: brl("10.00"), at: context.clock.now() });
+      const entry = fresh.debit({
+        entryId: context.ids.next(),
+        transactionId,
+        money: brl("10.00"),
+        at: context.clock.now(),
+      });
       await wallets.update(fresh, entry);
     });
 
     const staleAttempt = context.unitOfWork.run(async ({ wallets, transactions }) => {
       const transactionId = await insertBet(transactions, view, "20.00");
-      const entry = stale.debit({ entryId: context.ids.next(), transactionId, money: brl("20.00"), at: context.clock.now() });
+      const entry = stale.debit({
+        entryId: context.ids.next(),
+        transactionId,
+        money: brl("20.00"),
+        at: context.clock.now(),
+      });
       await wallets.update(stale, entry);
     });
 

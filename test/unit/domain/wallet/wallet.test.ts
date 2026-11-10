@@ -193,7 +193,7 @@ describe("Wallet", () => {
   describe("classificação dos erros", () => {
     test("recusas de negócio estendem BusinessRuleError", () => {
       const { wallet } = openWallet(brl("10.00"));
-      
+
       expect(captureError(() => wallet.debit(movement(brl("20.00"))))).toBeInstanceOf(BusinessRuleError);
       expect(captureError(() => wallet.debit(movement(usd("1.00"))))).toBeInstanceOf(BusinessRuleError);
     });

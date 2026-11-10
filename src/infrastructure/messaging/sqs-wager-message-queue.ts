@@ -37,7 +37,9 @@ export class SqsWagerMessageQueue implements WagerMessageQueue {
   }
 
   async acknowledge(message: QueueMessage): Promise<void> {
-    await this.client.send(new DeleteMessageCommand({ QueueUrl: this.urls.queueUrl, ReceiptHandle: message.receiptHandle }));
+    await this.client.send(
+      new DeleteMessageCommand({ QueueUrl: this.urls.queueUrl, ReceiptHandle: message.receiptHandle }),
+    );
   }
 
   async retryLater(message: QueueMessage, delayMs: number): Promise<void> {

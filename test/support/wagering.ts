@@ -1,7 +1,4 @@
-import {
-  WagerTransaction,
-  type CreateWagerTransactionProps,
-} from "../../src/domain/wagering/wager-transaction";
+import { WagerTransaction, type CreateWagerTransactionProps } from "../../src/domain/wagering/wager-transaction";
 import { WagerTransactionKind } from "../../src/domain/wagering/wager-transaction-kind";
 import { brl } from "./money";
 

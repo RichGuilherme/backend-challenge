@@ -62,8 +62,7 @@ export class Wallet {
 
   static open(props: OpenWalletProps): OpenedWallet {
     const { id, playerId, initialBalance, at, opening } = props;
-    if (initialBalance.isNegative())
-      throw new InvalidOpeningBalanceError(initialBalance);
+    if (initialBalance.isNegative()) throw new InvalidOpeningBalanceError(initialBalance);
 
     const wallet = new Wallet({
       id,
@@ -115,27 +114,15 @@ export class Wallet {
     if (this._balance.isLessThan(movement.money)) {
       throw new InsufficientFundsError(this.id, this._balance, movement.money);
     }
-    return this.apply(
-      LedgerDirection.Debit,
-      movement,
-      this._balance.subtract(movement.money),
-    );
+    return this.apply(LedgerDirection.Debit, movement, this._balance.subtract(movement.money));
   }
 
   credit(movement: WalletMovement): WalletLedgerEntry {
     this.assertValidMovement(movement.money);
-    return this.apply(
-      LedgerDirection.Credit,
-      movement,
-      this._balance.add(movement.money),
-    );
+    return this.apply(LedgerDirection.Credit, movement, this._balance.add(movement.money));
   }
 
-  private apply(
-    direction: LedgerDirection,
-    movement: WalletMovement,
-    balanceAfter: Money,
-  ): WalletLedgerEntry {
+  private apply(direction: LedgerDirection, movement: WalletMovement, balanceAfter: Money): WalletLedgerEntry {
     const entry = WalletLedgerEntry.create({
       id: movement.entryId,
       walletId: this.id,
@@ -156,11 +143,7 @@ export class Wallet {
 
   private assertValidMovement(money: Money): void {
     if (money.currency !== this.currency) {
-      throw new WalletCurrencyMismatchError(
-        this.id,
-        this.currency,
-        money.currency,
-      );
+      throw new WalletCurrencyMismatchError(this.id, this.currency, money.currency);
     }
     if (!money.isPositive()) throw new InvalidMovementAmountError(money);
   }

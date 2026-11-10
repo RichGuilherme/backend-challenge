@@ -26,9 +26,7 @@ export class WagerQueueHarness {
 
     const client = new SQSClient({ region, ...(endpoint ? { endpoint } : {}) });
 
-    const urlOf = async (name: string) =>
-      (await client.send(new GetQueueUrlCommand({ QueueName: name })))
-        .QueueUrl!;
+    const urlOf = async (name: string) => (await client.send(new GetQueueUrlCommand({ QueueName: name }))).QueueUrl!;
 
     return new WagerQueueHarness(client, {
       queueUrl: await urlOf(requireEnv("SQS_QUEUE_NAME")),
@@ -37,19 +35,11 @@ export class WagerQueueHarness {
   }
 
   async purge(): Promise<void> {
-    await this.client.send(
-      new PurgeQueueCommand({ QueueUrl: this.urls.queueUrl }),
-    );
-    await this.client.send(
-      new PurgeQueueCommand({ QueueUrl: this.urls.deadLetterQueueUrl }),
-    );
+    await this.client.send(new PurgeQueueCommand({ QueueUrl: this.urls.queueUrl }));
+    await this.client.send(new PurgeQueueCommand({ QueueUrl: this.urls.deadLetterQueueUrl }));
   }
 
-  async send(
-    body: string,
-    groupId: string,
-    correlationId?: string,
-  ): Promise<void> {
+  async send(body: string, groupId: string, correlationId?: string): Promise<void> {
     await this.client.send(
       new SendMessageCommand({
         QueueUrl: this.urls.queueUrl,
@@ -105,22 +95,13 @@ export class WagerQueueHarness {
     const { Attributes = {} } = await this.client.send(
       new GetQueueAttributesCommand({
         QueueUrl: this.urls.queueUrl,
-        AttributeNames: [
-          "ApproximateNumberOfMessages",
-          "ApproximateNumberOfMessagesNotVisible",
-        ],
+        AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"],
       }),
     );
 
     return {
-      visible: Number.parseInt(
-        Attributes.ApproximateNumberOfMessages ?? "0",
-        10,
-      ),
-      inFlight: Number.parseInt(
-        Attributes.ApproximateNumberOfMessagesNotVisible ?? "0",
-        10,
-      ),
+      visible: Number.parseInt(Attributes.ApproximateNumberOfMessages ?? "0", 10),
+      inFlight: Number.parseInt(Attributes.ApproximateNumberOfMessagesNotVisible ?? "0", 10),
     };
   }
 
@@ -129,10 +110,7 @@ export class WagerQueueHarness {
   }
 }
 
-export function wagerEnvelope(
-  messageId: string,
-  data: Record<string, unknown>,
-): string {
+export function wagerEnvelope(messageId: string, data: Record<string, unknown>): string {
   return JSON.stringify({
     messageId,
     type: "WagerTransactionRequested",

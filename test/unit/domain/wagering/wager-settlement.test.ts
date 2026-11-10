@@ -131,7 +131,10 @@ describe("WagerSettlement", () => {
       settleInto(ledger, wallet, first);
       settleInto(ledger, wallet, second);
 
-      expect([first.status, second.status]).toEqual([WagerTransactionStatus.Processed, WagerTransactionStatus.Rejected]);
+      expect([first.status, second.status]).toEqual([
+        WagerTransactionStatus.Processed,
+        WagerTransactionStatus.Rejected,
+      ]);
       expect(second.failureCode).toBe(FailureCode.InsufficientFunds);
       expect(wallet.balance.equals(brl("20.00"))).toBe(true);
       expect(ledger.filter((entry) => entry.direction === LedgerDirection.Debit)).toHaveLength(1);

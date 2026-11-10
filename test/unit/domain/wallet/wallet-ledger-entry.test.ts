@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Money } from "../../../../src/domain/shared/money/money";
 import { CurrencyMismatchError } from "../../../../src/domain/shared/money/money.errors";
 import { LedgerDirection } from "../../../../src/domain/wallet/ledger-direction";
-import {
-  WalletLedgerEntry,
-  type CreateLedgerEntryProps,
-} from "../../../../src/domain/wallet/wallet-ledger-entry";
+import { WalletLedgerEntry, type CreateLedgerEntryProps } from "../../../../src/domain/wallet/wallet-ledger-entry";
 import {
   InvalidLedgerEntryError,
   UnbalancedLedgerEntryError,

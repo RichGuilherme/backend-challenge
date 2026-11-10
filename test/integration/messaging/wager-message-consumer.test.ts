@@ -12,10 +12,7 @@ import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transac
 import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
 import { MikroOrmUnitOfWork } from "../../../src/infrastructure/persistence/mikro-orm-unit-of-work";
 import { SqsWagerMessageQueue } from "../../../src/infrastructure/messaging/sqs-wager-message-queue";
-import {
-  WAGER_CONSUMER_NAME,
-  WagerMessageConsumer,
-} from "../../../src/presentation/messaging/wager-message.consumer";
+import { WAGER_CONSUMER_NAME, WagerMessageConsumer } from "../../../src/presentation/messaging/wager-message.consumer";
 import { createTestContext, type TestContext } from "../../support/application";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { sampleOf } from "../../support/metrics";
@@ -119,7 +116,9 @@ describe("consumidor SQS de transações", () => {
 
     await pollUntilEmpty(consumerWith());
 
-    expect(await metricValue("wagering_processing_duration_seconds_count", { source: "sqs" })).toBe(durationsBefore + 1);
+    expect(await metricValue("wagering_processing_duration_seconds_count", { source: "sqs" })).toBe(
+      durationsBefore + 1,
+    );
 
     const [transaction] = await transactionsOf(wallet.id);
     expect(transaction).toMatchObject({ kind: "BET", status: "PROCESSED" });
@@ -206,7 +205,10 @@ describe("consumidor SQS de transações", () => {
     test("schema inválido (OPENING pela fila)", async () => {
       const before = await deadLettered("INVALID_PAYLOAD");
       const wallet = await open();
-      await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind: "OPENING" })), wallet.id);
+      await harness.send(
+        wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind: "OPENING" })),
+        wallet.id,
+      );
       await pollUntilEmpty(consumerWith());
       const [letter] = await harness.takeDeadLetters();
       expect(letter?.failureReason).toStartWith("INVALID_PAYLOAD");
@@ -218,7 +220,10 @@ describe("consumidor SQS de transações", () => {
       const before = await deadLettered("INVALID_PAYLOAD");
       const wallet = await open();
       await harness.send(
-        wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind, referenceExternalTransactionId: "outra" })),
+        wagerEnvelope(
+          `msg-${crypto.randomUUID()}`,
+          wagerData(wallet, { kind, referenceExternalTransactionId: "outra" }),
+        ),
         wallet.id,
       );
       await pollUntilEmpty(consumerWith());

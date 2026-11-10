@@ -57,7 +57,11 @@ export class OpenWalletUseCase {
       await scope.transactions.insert(
         WagerTransaction.opening({ id: openingTransactionId, walletId, playerId, money: initialBalance, at }),
       );
-      const balanceChanged = WalletBalanceChanged.from(wallet, openingEntry, eventContextFactory(command, this.ids, at)());
+      const balanceChanged = WalletBalanceChanged.from(
+        wallet,
+        openingEntry,
+        eventContextFactory(command, this.ids, at)(),
+      );
       await scope.outbox.add([OutboxMessage.enqueue(balanceChanged)]);
     }
     return toWalletView(wallet);

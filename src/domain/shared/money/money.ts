@@ -1,8 +1,4 @@
-import {
-  CurrencyMismatchError,
-  InvalidCurrencyError,
-  InvalidMoneyAmountError,
-} from "./money.errors";
+import { CurrencyMismatchError, InvalidCurrencyError, InvalidMoneyAmountError } from "./money.errors";
 
 export interface MoneyProps {
   amount: string;
@@ -29,9 +25,7 @@ export class Money {
     if (!match) throw new InvalidMoneyAmountError(amount);
 
     const [, integerPart = "0", fractionPart = ""] = match;
-    const cents =
-      BigInt(integerPart) * CENTS_PER_UNIT +
-      BigInt(fractionPart.padEnd(2, "0"));
+    const cents = BigInt(integerPart) * CENTS_PER_UNIT + BigInt(fractionPart.padEnd(2, "0"));
     return new Money(cents, currency);
   }
 
@@ -92,8 +86,7 @@ export class Money {
   }
 
   private assertSameCurrency(other: Money): void {
-    if (other.currency !== this.currency)
-      throw new CurrencyMismatchError(this.currency, other.currency);
+    if (other.currency !== this.currency) throw new CurrencyMismatchError(this.currency, other.currency);
   }
 
   private static parseCurrency(currency: unknown): string {

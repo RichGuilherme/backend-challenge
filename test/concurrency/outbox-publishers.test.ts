@@ -70,9 +70,13 @@ describe("publicadores concorrentes sobre a mesma outbox", () => {
 
     expect(counter.publications.size).toBe(60);
     expect([...counter.publications.values()].every((count) => count === 1)).toBe(true);
-    const [{ pending }] = await context.sql`select count(*)::int as pending from outbox_messages where published_at is null`;
+    const [{ pending }] =
+      await context.sql`select count(*)::int as pending from outbox_messages where published_at is null`;
     expect(pending).toBe(0);
-    const received = await subscriber.collect(enqueued.map((row) => row.id), 20_000);
+    const received = await subscriber.collect(
+      enqueued.map((row) => row.id),
+      20_000,
+    );
     expect(new Set(received.map((event) => event.eventId)).size).toBe(60);
   }, 60_000);
 });

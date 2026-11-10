@@ -17,7 +17,9 @@ describe("PrometheusMetrics", () => {
 
     expect(await sampleOf(registry, "wagering_transactions_total", { kind: "BET", status: "PROCESSED" })).toBe(2);
     expect(await sampleOf(registry, "wagering_transactions_total", { kind: "BET", status: "REJECTED" })).toBe(1);
-    expect(await sampleOf(registry, "wagering_transactions_total", { kind: "WIN", status: "PROCESSED" })).toBeUndefined();
+    expect(
+      await sampleOf(registry, "wagering_transactions_total", { kind: "WIN", status: "PROCESSED" }),
+    ).toBeUndefined();
   });
 
   test("duplicatas, retries e conflitos de lock são contadores simples", async () => {

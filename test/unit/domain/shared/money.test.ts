@@ -7,7 +7,6 @@ import {
 } from "../../../../src/domain/shared/money/money.errors";
 import { brl, usd } from "../../../support/money";
 
-
 describe("Money", () => {
   describe("from: normalização para 2 casas", () => {
     test.each([
@@ -52,9 +51,7 @@ describe("Money", () => {
     });
 
     test("number em runtime é rejeitado", () => {
-      expect(() => Money.from({ amount: 25 as unknown as string, currency: "BRL" })).toThrow(
-        InvalidMoneyAmountError,
-      );
+      expect(() => Money.from({ amount: 25 as unknown as string, currency: "BRL" })).toThrow(InvalidMoneyAmountError);
     });
   });
 

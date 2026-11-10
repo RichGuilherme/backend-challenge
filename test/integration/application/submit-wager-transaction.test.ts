@@ -4,7 +4,10 @@ import {
   SubmitWagerTransactionUseCase,
   type SubmitWagerTransactionCommand,
 } from "../../../src/application/wagering/submit-wager-transaction.use-case";
-import { IdempotencyConflictError, WagerTransactionNotFoundError } from "../../../src/application/wagering/wagering.errors";
+import {
+  IdempotencyConflictError,
+  WagerTransactionNotFoundError,
+} from "../../../src/application/wagering/wagering.errors";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WalletNotFoundError, WalletPlayerMismatchError } from "../../../src/application/wallet/wallet.errors";
@@ -31,7 +34,11 @@ beforeAll(async () => {
 afterAll(() => context?.close());
 
 const open = (amount = "100.00"): Promise<WalletView> =>
-  openWallet.execute({ playerId: `player-${crypto.randomUUID()}`, correlationId: "test-correlation", initialBalance: { amount, currency: "BRL" } });
+  openWallet.execute({
+    playerId: `player-${crypto.randomUUID()}`,
+    correlationId: "test-correlation",
+    initialBalance: { amount, currency: "BRL" },
+  });
 
 const command = (wallet: WalletView, overrides: Partial<SubmitWagerTransactionCommand> = {}) =>
   submitCommand(wallet.id, wallet.playerId, overrides);
@@ -78,7 +85,12 @@ describe("SubmitWagerTransactionUseCase", () => {
 
       expect(result.status).toBe(WagerTransactionStatus.Processed);
       expect(result.balance).toEqual({ amount: "100.00", currency: "BRL" });
-      expect(await walletState(wallet.id)).toMatchObject({ balance: "100.00", version: 1, entries: 1, transactions: 2 });
+      expect(await walletState(wallet.id)).toMatchObject({
+        balance: "100.00",
+        version: 1,
+        entries: 1,
+        transactions: 2,
+      });
       await expectWalletMatchesLedger(context.sql, wallet.id);
     });
 
@@ -99,7 +111,10 @@ describe("SubmitWagerTransactionUseCase", () => {
     test("moeda diferente da wallet é REJECTED com CURRENCY_MISMATCH", async () => {
       const wallet = await open();
       const result = await submit.execute(command(wallet, { money: { amount: "1.00", currency: "USD" } }));
-      expect(result).toMatchObject({ status: WagerTransactionStatus.Rejected, failureCode: FailureCode.CurrencyMismatch });
+      expect(result).toMatchObject({
+        status: WagerTransactionStatus.Rejected,
+        failureCode: FailureCode.CurrencyMismatch,
+      });
       await expectWalletMatchesLedger(context.sql, wallet.id);
     });
   });
@@ -109,7 +124,9 @@ describe("SubmitWagerTransactionUseCase", () => {
       const wallet = await open();
       const bet = command(wallet);
       const original = await submit.execute(bet);
-      await submit.execute(command(wallet, { kind: WagerTransactionKind.Win, money: { amount: "60.00", currency: "BRL" } }));
+      await submit.execute(
+        command(wallet, { kind: WagerTransactionKind.Win, money: { amount: "60.00", currency: "BRL" } }),
+      );
 
       const replay = await submit.execute(bet);
 

@@ -5,7 +5,13 @@ import { GetWalletUseCase } from "../../application/wallet/get-wallet.use-case";
 import { OpenWalletUseCase } from "../../application/wallet/open-wallet.use-case";
 import { ReconcileWalletUseCase, type ReconciliationReport } from "../../application/wallet/reconcile-wallet.use-case";
 import type { WalletView } from "../../application/wallet/wallet.view";
-import { createWalletSchema, ledgerQuerySchema, uuidSchema, type CreateWalletBody, type LedgerQueryParams } from "../schemas";
+import {
+  createWalletSchema,
+  ledgerQuerySchema,
+  uuidSchema,
+  type CreateWalletBody,
+  type LedgerQueryParams,
+} from "../schemas";
 import { CORRELATION_ID_HEADER, resolveCorrelationId } from "./correlation-id";
 import { decodeLedgerCursor, encodeLedgerCursor } from "./ledger-cursor";
 import { ZodValidationPipe } from "./zod-validation.pipe";

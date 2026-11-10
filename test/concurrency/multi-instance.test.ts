@@ -49,34 +49,30 @@ async function killWhenReached(scenario: LoadScenario, plan: KillPlan, random: R
 }
 
 describe("múltiplas instâncias reais sob carga, com processos mortos no meio", () => {
-  test(
-    "3 APIs, 3 consumidores, 3 publicadores e 1 worker de referências: nada duplica, nada se perde",
-    async () => {
-      const random = seededRandom(SEED);
-      const scenario = new LoadScenario(
-        { ...environment, cluster: () => cluster! },
-        { wallets: WALLETS, betsPerWallet: BETS_PER_WALLET, random, seed: SEED },
-      );
-      const operations = scenario.plan(await scenario.openWallets());
+  test("3 APIs, 3 consumidores, 3 publicadores e 1 worker de referências: nada duplica, nada se perde", async () => {
+    const random = seededRandom(SEED);
+    const scenario = new LoadScenario(
+      { ...environment, cluster: () => cluster! },
+      { wallets: WALLETS, betsPerWallet: BETS_PER_WALLET, random, seed: SEED },
+    );
+    const operations = scenario.plan(await scenario.openWallets());
 
-      cluster = new Cluster(loadTestEnv());
-      await Promise.all([
-        cluster.start("api", 3),
-        cluster.start("consumer", 3),
-        cluster.start("outbox-publisher", 3),
-        cluster.start("reference-worker", 1),
-      ]);
+    cluster = new Cluster(loadTestEnv());
+    await Promise.all([
+      cluster.start("api", 3),
+      cluster.start("consumer", 3),
+      cluster.start("outbox-publisher", 3),
+      cluster.start("reference-worker", 1),
+    ]);
 
-      const killers = KILL_PLAN.map((plan) => killWhenReached(scenario, plan, random));
-      await scenario.run(operations);
-      await Promise.all(killers);
-      await scenario.drain(DRAIN_TIMEOUT_MS);
+    const killers = KILL_PLAN.map((plan) => killWhenReached(scenario, plan, random));
+    await scenario.run(operations);
+    await Promise.all(killers);
+    await scenario.drain(DRAIN_TIMEOUT_MS);
 
-      expect(cluster.kills.map((kill) => kill.role).sort()).toEqual(KILL_PLAN.map((plan) => plan.role).sort());
-      await scenario.verifyFinalState(operations);
+    expect(cluster.kills.map((kill) => kill.role).sort()).toEqual(KILL_PLAN.map((plan) => plan.role).sort());
+    await scenario.verifyFinalState(operations);
 
-      for (const service of await cluster.terminateAll()) expect([0, 128 + 15]).toContain(service.exitCode);
-    },
-    420_000,
-  );
+    for (const service of await cluster.terminateAll()) expect([0, 128 + 15]).toContain(service.exitCode);
+  }, 420_000);
 });

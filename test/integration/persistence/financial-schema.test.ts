@@ -99,7 +99,11 @@ async function seedWallet(balance = "100.00"): Promise<{ walletId: string; openi
     });
     openingId = String(opening.id);
     await insert(tx, "wager_transactions", opening);
-    await insert(tx, "wallet_ledger_entries", ledgerRow(String(wallet.id), openingId, { amount: balance, balance_after: balance }));
+    await insert(
+      tx,
+      "wallet_ledger_entries",
+      ledgerRow(String(wallet.id), openingId, { amount: balance, balance_after: balance }),
+    );
   });
   return { walletId: String(wallet.id), openingId };
 }
@@ -381,7 +385,10 @@ describe("schema financeiro", () => {
 
       test.each([
         ["PROCESSED", processed("75.00")],
-        ["REJECTED", { status: "REJECTED", failure_code: "INSUFFICIENT_FUNDS", observed_balance: "1.00", processed_at: now }],
+        [
+          "REJECTED",
+          { status: "REJECTED", failure_code: "INSUFFICIENT_FUNDS", observed_balance: "1.00", processed_at: now },
+        ],
         ["FAILED", { status: "FAILED", failure_code: "INSUFFICIENT_FUNDS", processed_at: now }],
       ])("transação %s não pode ser alterada", async (_status, outcome) => {
         const { walletId } = await seedWallet();
@@ -439,7 +446,11 @@ describe("schema financeiro", () => {
         insert(
           sql,
           "wallet_ledger_entries",
-          ledgerRow(walletId, String(openingId), { wallet_version: 2, balance_before: "100.00", balance_after: "200.00" }),
+          ledgerRow(walletId, String(openingId), {
+            wallet_version: 2,
+            balance_before: "100.00",
+            balance_after: "200.00",
+          }),
         ),
         "wallet_ledger_entries_transaction_unique",
       );

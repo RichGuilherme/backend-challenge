@@ -15,7 +15,16 @@ import { PollingWorker } from "../presentation/workers/polling-worker";
 import { loadPendingReferenceConfig } from "../shared/config/env";
 import { createOpsServer } from "./ops";
 import { PersistenceModule } from "./persistence.module";
-import { CLOCK, ID_GENERATOR, LOGGER, METRICS_REGISTRY, OBSERVABILITY, OPS_SERVER, REFERENCE_WORKER, UNIT_OF_WORK } from "./tokens";
+import {
+  CLOCK,
+  ID_GENERATOR,
+  LOGGER,
+  METRICS_REGISTRY,
+  OBSERVABILITY,
+  OPS_SERVER,
+  REFERENCE_WORKER,
+  UNIT_OF_WORK,
+} from "./tokens";
 import { workerErrorLogger } from "./worker-error-logger";
 
 @Module({

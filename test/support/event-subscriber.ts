@@ -48,7 +48,9 @@ export class EventSubscriberQueue {
         }),
       );
       for (const message of Messages) {
-        await this.client.send(new DeleteMessageCommand({ QueueUrl: this.queueUrl, ReceiptHandle: message.ReceiptHandle! }));
+        await this.client.send(
+          new DeleteMessageCommand({ QueueUrl: this.queueUrl, ReceiptHandle: message.ReceiptHandle! }),
+        );
         const body = JSON.parse(message.Body ?? "{}") as Record<string, unknown>;
         const eventId = String(body.eventId);
         if (!wanted.has(eventId)) continue;

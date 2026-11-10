@@ -12,7 +12,11 @@ import { LOGGER, METRICS, METRICS_REGISTRY, OBSERVABILITY } from "./tokens";
 @Module({
   providers: [
     { provide: METRICS_REGISTRY, useFactory: () => new Registry() },
-    { provide: METRICS, inject: [METRICS_REGISTRY], useFactory: (registry: Registry) => new PrometheusMetrics(registry) },
+    {
+      provide: METRICS,
+      inject: [METRICS_REGISTRY],
+      useFactory: (registry: Registry) => new PrometheusMetrics(registry),
+    },
     { provide: LOGGER, useFactory: () => new PinoLogger(createRootLogger(loadLoggingConfig())) },
     {
       provide: OBSERVABILITY,

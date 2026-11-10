@@ -1,10 +1,7 @@
 import { SQL } from "bun";
 import { MikroORM } from "@mikro-orm/postgresql";
 import { createMikroOrmOptions } from "../../src/infrastructure/persistence/mikro-orm.config";
-import {
-  loadDatabaseConfig,
-  type DatabaseConfig,
-} from "../../src/shared/config/env";
+import { loadDatabaseConfig, type DatabaseConfig } from "../../src/shared/config/env";
 
 const TEST_SUFFIX = "_test";
 

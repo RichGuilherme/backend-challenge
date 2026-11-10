@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import {
-  computePayloadHash,
-  type WagerTransactionPayload,
-} from "../../../../src/application/wagering/payload-hash";
+import { computePayloadHash, type WagerTransactionPayload } from "../../../../src/application/wagering/payload-hash";
 
 const payload = (overrides: Partial<WagerTransactionPayload> = {}): WagerTransactionPayload => ({
   providerId: "provider-a",

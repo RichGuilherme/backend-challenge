@@ -60,10 +60,8 @@ export class LoadScenario {
   ) {
     this.transactionsPerWallet = options.betsPerWallet + 1;
     this.totalTransactions = options.wallets * this.transactionsPerWallet;
-    this.expectedFinalBalance = Array.from({ length: options.betsPerWallet }).reduce(
-      (balance: ReturnType<typeof brl>) => balance.subtract(brl(BET_AMOUNT)),
-      brl(INITIAL_BALANCE),
-    )
+    this.expectedFinalBalance = Array.from({ length: options.betsPerWallet })
+      .reduce((balance: ReturnType<typeof brl>) => balance.subtract(brl(BET_AMOUNT)), brl(INITIAL_BALANCE))
       .add(brl(BET_AMOUNT))
       .toJSON().amount;
   }
@@ -131,7 +129,8 @@ export class LoadScenario {
   }
 
   async progress(): Promise<number> {
-    const [row] = await this.deps.context.sql`select count(*)::int as count from wager_transactions where kind <> 'OPENING'`;
+    const [row] = await this.deps.context
+      .sql`select count(*)::int as count from wager_transactions where kind <> 'OPENING'`;
     return row.count / this.totalTransactions;
   }
 

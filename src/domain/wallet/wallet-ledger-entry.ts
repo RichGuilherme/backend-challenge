@@ -1,10 +1,7 @@
 import type { Money } from "../shared/money/money";
 import { copyDate } from "../shared/copy-date";
 import { LedgerDirection } from "./ledger-direction";
-import {
-  InvalidLedgerEntryError,
-  UnbalancedLedgerEntryError,
-} from "./wallet-ledger-entry.errors";
+import { InvalidLedgerEntryError, UnbalancedLedgerEntryError } from "./wallet-ledger-entry.errors";
 
 export interface LedgerEntryState {
   id: string;
@@ -46,14 +43,10 @@ export class WalletLedgerEntry {
 
   static create(props: CreateLedgerEntryProps): WalletLedgerEntry {
     if (!props.money.isPositive()) {
-      throw new InvalidLedgerEntryError(
-        `Valor do lançamento deve ser positivo: ${props.money}`,
-      );
+      throw new InvalidLedgerEntryError(`Valor do lançamento deve ser positivo: ${props.money}`);
     }
     if (!Number.isInteger(props.walletVersion) || props.walletVersion < 1) {
-      throw new InvalidLedgerEntryError(
-        `Versão da wallet inválida: ${props.walletVersion}`,
-      );
+      throw new InvalidLedgerEntryError(`Versão da wallet inválida: ${props.walletVersion}`);
     }
 
     const entry = WalletLedgerEntry.rehydrate(props);
@@ -67,9 +60,7 @@ export class WalletLedgerEntry {
       );
     }
     if (props.balanceAfter.isNegative()) {
-      throw new InvalidLedgerEntryError(
-        `Saldo após o lançamento não pode ser negativo: ${props.balanceAfter}`,
-      );
+      throw new InvalidLedgerEntryError(`Saldo após o lançamento não pode ser negativo: ${props.balanceAfter}`);
     }
     return entry;
   }

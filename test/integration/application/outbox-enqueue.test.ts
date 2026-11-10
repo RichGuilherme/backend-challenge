@@ -36,13 +36,23 @@ describe("eventos enfileirados na outbox, na mesma transação", () => {
     const [row, ...rest] = await outboxByPartition(context.sql, wallet.id);
 
     expect(rest).toHaveLength(0);
-    expect(row).toMatchObject({ event_type: "WalletBalanceChanged", aggregate_id: wallet.id, attempts: 0, published_at: null });
+    expect(row).toMatchObject({
+      event_type: "WalletBalanceChanged",
+      aggregate_id: wallet.id,
+      attempts: 0,
+      published_at: null,
+    });
     expect(row?.payload).toMatchObject({
       eventId: row?.id,
       eventType: "WalletBalanceChanged",
       correlationId: "corr-open",
       version: 1,
-      data: { walletId: wallet.id, direction: "CREDIT", balanceAfter: { amount: "100.00", currency: "BRL" }, walletVersion: 1 },
+      data: {
+        walletId: wallet.id,
+        direction: "CREDIT",
+        balanceAfter: { amount: "100.00", currency: "BRL" },
+        walletVersion: 1,
+      },
     });
   });
 

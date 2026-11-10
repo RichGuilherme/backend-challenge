@@ -40,5 +40,7 @@ export function outboxMessagesForSettlement(
   ledgerEntry: WalletLedgerEntry | undefined,
   nextContext: () => EventContext,
 ): OutboxMessage[] {
-  return eventsForSettlement(transaction, wallet, ledgerEntry, nextContext).map((event) => OutboxMessage.enqueue(event));
+  return eventsForSettlement(transaction, wallet, ledgerEntry, nextContext).map((event) =>
+    OutboxMessage.enqueue(event),
+  );
 }

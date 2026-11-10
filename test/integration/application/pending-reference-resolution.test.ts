@@ -32,8 +32,20 @@ beforeAll(async () => {
 beforeEach(async () => {
   clock = new TestClock();
   openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, clock);
-  submit = new SubmitWagerTransactionUseCase(context.unitOfWork, context.ids, clock, DEFAULT_PENDING_REFERENCE_POLICY, half);
-  resolve = new ResolvePendingReferenceUseCase(context.unitOfWork, context.ids, clock, DEFAULT_PENDING_REFERENCE_POLICY, half);
+  submit = new SubmitWagerTransactionUseCase(
+    context.unitOfWork,
+    context.ids,
+    clock,
+    DEFAULT_PENDING_REFERENCE_POLICY,
+    half,
+  );
+  resolve = new ResolvePendingReferenceUseCase(
+    context.unitOfWork,
+    context.ids,
+    clock,
+    DEFAULT_PENDING_REFERENCE_POLICY,
+    half,
+  );
   await context.sql`delete from pending_references`;
 });
 

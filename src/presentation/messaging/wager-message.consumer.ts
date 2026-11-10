@@ -20,8 +20,7 @@ export interface WagerMessageConsumerOptions {
 }
 
 type ParseResult =
-  | { ok: true; message: WagerTransactionRequested }
-  | { ok: false; reason: DeadLetterReason; detail: string };
+  { ok: true; message: WagerTransactionRequested } | { ok: false; reason: DeadLetterReason; detail: string };
 
 type PermanentError = readonly [new (...args: never[]) => Error, DeadLetterReason];
 

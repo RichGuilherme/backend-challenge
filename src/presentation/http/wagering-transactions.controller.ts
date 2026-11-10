@@ -64,7 +64,11 @@ export class WageringTransactionsController {
 
   @Get("providers/:providerId/wagering/transactions/:externalTransactionId")
   findByProviderReference(
-    @Param(new ZodValidationPipe(providerReferenceSchema)) params: { providerId: string; externalTransactionId: string },
+    @Param(new ZodValidationPipe(providerReferenceSchema))
+    params: {
+      providerId: string;
+      externalTransactionId: string;
+    },
   ): Promise<WagerTransactionView> {
     return this.getTransaction.byProviderReference(params.providerId, params.externalTransactionId);
   }

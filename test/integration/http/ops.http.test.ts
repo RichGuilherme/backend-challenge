@@ -98,7 +98,10 @@ describe("GET /health/live e /health/ready", () => {
   });
 
   test("ready respeita o timeout configurado quando a dependência demora", async () => {
-    const blackhole = await startTestHttpApp({ AWS_ENDPOINT_URL: "http://10.255.255.1:4566", HEALTH_CHECK_TIMEOUT_MS: "300" });
+    const blackhole = await startTestHttpApp({
+      AWS_ENDPOINT_URL: "http://10.255.255.1:4566",
+      HEALTH_CHECK_TIMEOUT_MS: "300",
+    });
     try {
       const startedAt = performance.now();
       const ready = await fetch(`${blackhole.baseUrl}/health/ready`);
@@ -150,7 +153,8 @@ describe("X-Correlation-Id", () => {
     const generated = response.headers.get("x-correlation-id");
     const wallet = (await response.json()) as { id: string };
 
-    const [row] = await context.sql`select payload->>'correlationId' as correlation_id from outbox_messages where aggregate_id = ${wallet.id}`;
+    const [row] =
+      await context.sql`select payload->>'correlationId' as correlation_id from outbox_messages where aggregate_id = ${wallet.id}`;
 
     expect(generated).toMatch(/^[0-9a-f-]{36}$/);
     expect(row.correlation_id).toBe(generated);
@@ -158,7 +162,9 @@ describe("X-Correlation-Id", () => {
 
   test("é gerado quando ausente ou inválido", async () => {
     const absent = await fetch(`${http.baseUrl}/health/live`);
-    const invalid = await fetch(`${http.baseUrl}/health/live`, { headers: { "x-correlation-id": "inválido com espaço" } });
+    const invalid = await fetch(`${http.baseUrl}/health/live`, {
+      headers: { "x-correlation-id": "inválido com espaço" },
+    });
 
     expect(absent.headers.get("x-correlation-id")).toMatch(/^[0-9a-f-]{36}$/);
     expect(invalid.headers.get("x-correlation-id")).toMatch(/^[0-9a-f-]{36}$/);

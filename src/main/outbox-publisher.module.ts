@@ -23,7 +23,15 @@ import { loadAwsConfig, loadOutboxConfig } from "../shared/config/env";
 import { createOpsServer } from "./ops";
 import { OutboxLagModule } from "./outbox-lag.module";
 import { PersistenceModule } from "./persistence.module";
-import { CLOCK, EVENT_PUBLISHER, LOGGER, METRICS_REGISTRY, OPS_SERVER, OUTBOX_PUBLISHER_WORKER, UNIT_OF_WORK } from "./tokens";
+import {
+  CLOCK,
+  EVENT_PUBLISHER,
+  LOGGER,
+  METRICS_REGISTRY,
+  OPS_SERVER,
+  OUTBOX_PUBLISHER_WORKER,
+  UNIT_OF_WORK,
+} from "./tokens";
 import { workerErrorLogger } from "./worker-error-logger";
 
 @Module({
@@ -68,9 +76,7 @@ import { workerErrorLogger } from "./worker-error-logger";
     },
   ],
 })
-export class OutboxPublisherModule
-  implements OnApplicationBootstrap, BeforeApplicationShutdown, OnApplicationShutdown
-{
+export class OutboxPublisherModule implements OnApplicationBootstrap, BeforeApplicationShutdown, OnApplicationShutdown {
   constructor(
     @Inject(OUTBOX_PUBLISHER_WORKER) private readonly worker: PollingWorker,
     @Inject(OPS_SERVER) private readonly ops: OpsServer,

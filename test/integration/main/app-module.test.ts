@@ -29,9 +29,11 @@ afterAll(async () => {
 
 describe("AppModule", () => {
   test("monta os casos de uso com UnitOfWork, ids e relógio reais", async () => {
-    const wallet = await app
-      .get(OpenWalletUseCase)
-      .execute({ playerId: `player-${crypto.randomUUID()}`, correlationId: "test-correlation", initialBalance: { amount: "100.00", currency: "BRL" } });
+    const wallet = await app.get(OpenWalletUseCase).execute({
+      playerId: `player-${crypto.randomUUID()}`,
+      correlationId: "test-correlation",
+      initialBalance: { amount: "100.00", currency: "BRL" },
+    });
 
     const result = await app.get(SubmitWagerTransactionUseCase).execute(submitCommand(wallet.id, wallet.playerId));
 

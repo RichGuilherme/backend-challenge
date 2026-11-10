@@ -53,7 +53,8 @@ const CONSUMER_IDLE_MS = 100;
       inject: [SQSClient],
       useFactory: async (client: SQSClient) => {
         const { queueName, deadLetterQueueName } = loadConsumerConfig();
-        const urlOf = async (name: string) => (await client.send(new GetQueueUrlCommand({ QueueName: name }))).QueueUrl!;
+        const urlOf = async (name: string) =>
+          (await client.send(new GetQueueUrlCommand({ QueueName: name }))).QueueUrl!;
         return new SqsWagerMessageQueue(client, {
           queueUrl: await urlOf(queueName),
           deadLetterQueueUrl: await urlOf(deadLetterQueueName),
@@ -83,7 +84,11 @@ const CONSUMER_IDLE_MS = 100;
       provide: WAGER_CONSUMER_WORKER,
       inject: [WagerMessageConsumer, LOGGER],
       useFactory: (consumer: WagerMessageConsumer, logger: Logger) =>
-        new PollingWorker(() => consumer.pollOnce(), { pollIntervalMs: CONSUMER_IDLE_MS }, workerErrorLogger(logger, "consumer")),
+        new PollingWorker(
+          () => consumer.pollOnce(),
+          { pollIntervalMs: CONSUMER_IDLE_MS },
+          workerErrorLogger(logger, "consumer"),
+        ),
     },
     {
       provide: OPS_SERVER,

@@ -46,7 +46,11 @@ function transactionBody(wallet: Wallet, overrides: Record<string, unknown> = {}
 const keyOf = (body: { providerId: unknown; externalTransactionId: unknown }) =>
   `${body.providerId}:${body.externalTransactionId}`;
 
-function submit(body: Record<string, unknown>, idempotencyKey: string | null = keyOf(body as never), baseUrl = http.baseUrl) {
+function submit(
+  body: Record<string, unknown>,
+  idempotencyKey: string | null = keyOf(body as never),
+  baseUrl = http.baseUrl,
+) {
   return requestJson(`${baseUrl}/wagering/transactions`, {
     method: "POST",
     body,
@@ -180,7 +184,8 @@ describe("POST /wagering/transactions", () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({ error: "INVALID_PAYLOAD" });
-      const [row] = await context.sql`select count(*)::int as count from wager_transactions where wallet_id = ${wallet.id}`;
+      const [row] =
+        await context.sql`select count(*)::int as count from wager_transactions where wallet_id = ${wallet.id}`;
       expect(row.count).toBe(1);
     });
   });

@@ -4,7 +4,11 @@ import { PollingWorker } from "../../../src/presentation/workers/polling-worker"
 describe("PollingWorker", () => {
   test("repete a tarefa imediatamente enquanto há trabalho e espera o intervalo quando não há", async () => {
     let calls = 0;
-    const worker = new PollingWorker(async () => ++calls <= 3, { pollIntervalMs: 50 }, () => undefined);
+    const worker = new PollingWorker(
+      async () => ++calls <= 3,
+      { pollIntervalMs: 50 },
+      () => undefined,
+    );
 
     worker.start();
     await Bun.sleep(20);
@@ -34,7 +38,11 @@ describe("PollingWorker", () => {
   });
 
   test("stop interrompe a espera sem aguardar o intervalo inteiro", async () => {
-    const worker = new PollingWorker(async () => false, { pollIntervalMs: 60_000 }, () => undefined);
+    const worker = new PollingWorker(
+      async () => false,
+      { pollIntervalMs: 60_000 },
+      () => undefined,
+    );
     worker.start();
     await Bun.sleep(5);
 

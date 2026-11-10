@@ -76,7 +76,9 @@ describe("processo da API", () => {
       res: { statusCode: 200 },
     });
 
-    const submittedLog = logs.find((line) => line.msg === "transação submetida" && line.transactionId === transactionId);
+    const submittedLog = logs.find(
+      (line) => line.msg === "transação submetida" && line.transactionId === transactionId,
+    );
     expect(submittedLog).toMatchObject({
       correlationId: "corr-api-process",
       transactionId,

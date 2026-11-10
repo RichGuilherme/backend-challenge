@@ -9,8 +9,7 @@ if (direction !== "up" && direction !== "down") {
 
 const orm = await MikroORM.init(createMikroOrmOptions(loadDatabaseConfig()));
 try {
-  const executed =
-    direction === "up" ? await orm.migrator.up() : await orm.migrator.down();
+  const executed = direction === "up" ? await orm.migrator.up() : await orm.migrator.down();
   console.log(
     JSON.stringify({
       direction,

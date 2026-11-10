@@ -55,7 +55,13 @@ describe("workers de referência pendente concorrentes", () => {
     clock.advance(2_000);
 
     const worker = () =>
-      new ResolvePendingReferenceUseCase(context.unitOfWork, context.ids, clock, DEFAULT_PENDING_REFERENCE_POLICY, half);
+      new ResolvePendingReferenceUseCase(
+        context.unitOfWork,
+        context.ids,
+        clock,
+        DEFAULT_PENDING_REFERENCE_POLICY,
+        half,
+      );
     const drain = async (resolver: ResolvePendingReferenceUseCase) => {
       const outcomes: string[] = [];
       for (let outcome = await resolver.execute(); outcome; outcome = await resolver.execute()) outcomes.push(outcome);

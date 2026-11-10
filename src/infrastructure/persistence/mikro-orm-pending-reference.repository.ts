@@ -22,7 +22,11 @@ export class MikroOrmPendingReferenceRepository implements PendingReferenceRepos
 
   async save(pending: PendingReference): Promise<void> {
     const { attempts, nextAttemptAt } = toRow(pending);
-    await this.em.nativeUpdate(PendingReferenceRecord, { transactionId: pending.transactionId }, { attempts, nextAttemptAt });
+    await this.em.nativeUpdate(
+      PendingReferenceRecord,
+      { transactionId: pending.transactionId },
+      { attempts, nextAttemptAt },
+    );
   }
 
   async remove(transactionId: string): Promise<void> {

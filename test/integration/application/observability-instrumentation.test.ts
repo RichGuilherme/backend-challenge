@@ -176,7 +176,9 @@ describe("instrumentação do worker de referências", () => {
     await resolve.execute();
 
     expect(await transactions("REFUND", "PROCESSED")).toBe(1);
-    expect(await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" })).toBe(1);
+    expect(await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" })).toBe(
+      1,
+    );
     expect(logs).toEqual([
       {
         level: "info",
@@ -204,12 +206,16 @@ describe("instrumentação do worker de referências", () => {
     expect(await resolve.execute()).toBe("RESCHEDULED");
 
     expect(await transactions("REFUND", "REJECTED")).toBeUndefined();
-    expect(await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" })).toBe(1);
+    expect(await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" })).toBe(
+      1,
+    );
   });
 
   test("sem pendência vencida não mede nada", async () => {
     await resolve.execute();
-    expect(await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" })).toBeUndefined();
+    expect(
+      await sampleOf(registry, "wagering_processing_duration_seconds_count", { source: "reference-worker" }),
+    ).toBeUndefined();
   });
 });
 

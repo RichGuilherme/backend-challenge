@@ -13,6 +13,8 @@
     "start:reference-worker": "bun run src/main/reference-worker.ts",
     "start:consumer": "bun run src/main/consumer.ts",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write src test migrations",
+    "format:check": "prettier --check src test migrations",
     "test": "bun test",
     "test:unit": "bun test test/unit",
     "test:integration": "bun test test/integration",
@@ -42,6 +44,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
+    "prettier": "3.9.10",
     "typescript": "^7.0.2"
   }
 }

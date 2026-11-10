@@ -63,7 +63,10 @@ const REVERSAL_REFERENCE_RULE = {
   path: ["referenceExternalTransactionId"],
 };
 
-function reversalHasReference(body: { kind: WagerTransactionKind; referenceExternalTransactionId?: string | undefined }) {
+function reversalHasReference(body: {
+  kind: WagerTransactionKind;
+  referenceExternalTransactionId?: string | undefined;
+}) {
   return !REVERSAL_KINDS.includes(body.kind) || body.referenceExternalTransactionId !== undefined;
 }
 
@@ -72,7 +75,10 @@ const NO_REFERENCE_RULE = {
   path: ["referenceExternalTransactionId"],
 };
 
-function betAndLossHaveNoReference(body: { kind: WagerTransactionKind; referenceExternalTransactionId?: string | undefined }) {
+function betAndLossHaveNoReference(body: {
+  kind: WagerTransactionKind;
+  referenceExternalTransactionId?: string | undefined;
+}) {
   return !KINDS_WITHOUT_REFERENCE.includes(body.kind) || body.referenceExternalTransactionId === undefined;
 }
 
