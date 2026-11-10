@@ -1,3 +1,5 @@
+export const LOGGER = Symbol("Logger");
+
 export type LogFields = Readonly<Record<string, unknown>>;
 
 export interface Logger {

@@ -1,4 +1,5 @@
-import { Catch, HttpException, HttpStatus, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
+import { Catch, HttpException, HttpStatus, Inject, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
+import { LOGGER, type Logger } from "../../application/ports/logger";
 import { TransientFailureError } from "../../application/shared/application-error";
 import { IdempotencyConflictError, WagerTransactionNotFoundError } from "../../application/wagering/wagering.errors";
 import {
@@ -6,6 +7,7 @@ import {
   WalletNotFoundError,
   WalletPlayerMismatchError,
 } from "../../application/wallet/wallet.errors";
+import { CORRELATION_ID_HEADER } from "./correlation-id";
 import { InvalidPayloadError } from "./invalid-payload.error";
 
 interface HttpResponse {
@@ -14,21 +16,41 @@ interface HttpResponse {
   json(body: unknown): void;
 }
 
+interface HttpRequest {
+  headers: Record<string, string | string[] | undefined>;
+}
+
 interface ErrorResponse {
   status: number;
   body: Record<string, unknown>;
   headers?: Record<string, string>;
+  unexpected?: boolean;
 }
 
 const TRANSIENT_RETRY_AFTER_SECONDS = "1";
 
 @Catch()
 export class HttpErrorFilter implements ExceptionFilter {
+  constructor(@Inject(LOGGER) private readonly logger: Logger) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
-    const { status, body, headers = {} } = toErrorResponse(exception);
-    const response = host.switchToHttp().getResponse<HttpResponse>();
+    const { status, body, headers = {}, unexpected = false } = toErrorResponse(exception);
+    const http = host.switchToHttp();
+    if (unexpected) this.logUnexpected(exception, http.getRequest<HttpRequest>());
+    const response = http.getResponse<HttpResponse>();
     for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
     response.status(status).json(body);
+  }
+
+  private logUnexpected(exception: unknown, request: HttpRequest): void {
+    const header = request.headers[CORRELATION_ID_HEADER];
+    const failure = exception instanceof Error ? exception : new Error(String(exception));
+    this.logger.error("erro inesperado na requisição", {
+      correlationId: Array.isArray(header) ? header[0] : header,
+      errorName: failure.name,
+      errorMessage: failure.message,
+      stack: failure.stack,
+    });
   }
 }
 
@@ -58,7 +80,7 @@ function toErrorResponse(exception: unknown): ErrorResponse {
     };
   }
   if (exception instanceof HttpException) return fromFrameworkException(exception);
-  return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Erro interno");
+  return { ...error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Erro interno"), unexpected: true };
 }
 
 function fromFrameworkException(exception: HttpException): ErrorResponse {
