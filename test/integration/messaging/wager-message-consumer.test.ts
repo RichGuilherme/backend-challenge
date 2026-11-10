@@ -214,6 +214,20 @@ describe("consumidor SQS de transações", () => {
       expect(await transactionsOf(wallet.id)).toHaveLength(0);
     });
 
+    test.each(["BET", "LOSS"])("%s com referência é payload inválido", async (kind) => {
+      const before = await deadLettered("INVALID_PAYLOAD");
+      const wallet = await open();
+      await harness.send(
+        wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind, referenceExternalTransactionId: "outra" })),
+        wallet.id,
+      );
+      await pollUntilEmpty(consumerWith());
+      const [letter] = await harness.takeDeadLetters();
+      expect(letter?.failureReason).toStartWith("INVALID_PAYLOAD");
+      expect(await deadLettered("INVALID_PAYLOAD")).toBe(before + 1);
+      expect(await transactionsOf(wallet.id)).toHaveLength(0);
+    });
+
     test("wallet inexistente", async () => {
       const before = await deadLettered("WALLET_NOT_FOUND");
       const ghost = { id: crypto.randomUUID(), playerId: "player-fantasma" } as WalletView;

@@ -166,6 +166,8 @@ describe("POST /wagering/transactions", () => {
       ["valor number", { money: { amount: 25, currency: "BRL" } }],
       ["valor com 3 casas", { money: { amount: "25.001", currency: "BRL" } }],
       ["REFUND sem referência", { kind: "REFUND" }],
+      ["BET com referência", { kind: "BET", referenceExternalTransactionId: "outra" }],
+      ["LOSS com referência", { kind: "LOSS", referenceExternalTransactionId: "outra" }],
       ["walletId que não é UUID", { walletId: "abc" }],
       ["providerId vazio", { providerId: "" }],
       ["provider interno reservado", { providerId: "internal" }],

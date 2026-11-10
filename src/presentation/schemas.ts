@@ -30,6 +30,8 @@ const SUBMITTABLE_KINDS = [
 
 const REVERSAL_KINDS: readonly WagerTransactionKind[] = [WagerTransactionKind.Refund, WagerTransactionKind.Rollback];
 
+const KINDS_WITHOUT_REFERENCE: readonly WagerTransactionKind[] = [WagerTransactionKind.Bet, WagerTransactionKind.Loss];
+
 export const uuidSchema = z.uuid();
 
 export const idempotencyKeySchema = identifier;
@@ -65,12 +67,22 @@ function reversalHasReference(body: { kind: WagerTransactionKind; referenceExter
   return !REVERSAL_KINDS.includes(body.kind) || body.referenceExternalTransactionId !== undefined;
 }
 
+const NO_REFERENCE_RULE = {
+  message: "BET e LOSS não aceitam referenceExternalTransactionId",
+  path: ["referenceExternalTransactionId"],
+};
+
+function betAndLossHaveNoReference(body: { kind: WagerTransactionKind; referenceExternalTransactionId?: string | undefined }) {
+  return !KINDS_WITHOUT_REFERENCE.includes(body.kind) || body.referenceExternalTransactionId === undefined;
+}
+
 function moneyAsProps<Body extends { money: Money }>(body: Body) {
   return { ...body, money: body.money.toJSON() };
 }
 
 export const submitWagerTransactionSchema = wagerTransactionObject
   .refine(reversalHasReference, REVERSAL_REFERENCE_RULE)
+  .refine(betAndLossHaveNoReference, NO_REFERENCE_RULE)
   .transform(moneyAsProps);
 
 export const wagerTransactionRequestedSchema = z.object({
@@ -80,6 +92,7 @@ export const wagerTransactionRequestedSchema = z.object({
   data: wagerTransactionObject
     .extend({ idempotencyKey: identifier })
     .refine(reversalHasReference, REVERSAL_REFERENCE_RULE)
+    .refine(betAndLossHaveNoReference, NO_REFERENCE_RULE)
     .transform(moneyAsProps),
 });
 

@@ -170,6 +170,24 @@ describe("SubmitWagerTransactionUseCase", () => {
         referenceExternalTransactionId: reference.externalTransactionId,
       });
 
+    test("WIN com referência é aplicado sem esperar nem validar a BET, e a referência fica guardada", async () => {
+      const wallet = await open();
+      const win = command(wallet, {
+        kind: WagerTransactionKind.Win,
+        money: { amount: "60.00", currency: "BRL" },
+        referenceExternalTransactionId: "bet-que-nunca-chegou",
+      });
+
+      const result = await submit.execute(win);
+
+      expect(result).toMatchObject({ status: WagerTransactionStatus.Processed, balance: { amount: "160.00" } });
+      const view = await getTransaction.byId(result.transactionId);
+      expect(view.referenceExternalTransactionId).toBe("bet-que-nunca-chegou");
+      expect(view.referenceTransactionId).toBeUndefined();
+      expect(await walletState(wallet.id)).toMatchObject({ balance: "160.00", version: 2 });
+      await expectWalletMatchesLedger(context.sql, wallet.id);
+    });
+
     test("REFUND de BET processada devolve o valor e vincula a referência", async () => {
       const wallet = await open();
       const bet = command(wallet);

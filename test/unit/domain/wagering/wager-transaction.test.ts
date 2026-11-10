@@ -36,6 +36,15 @@ const props = (overrides: Partial<CreateWagerTransactionProps> = {}): CreateWage
   ...overrides,
 });
 
+const KINDS_WITH_REFERENCE: readonly WagerTransactionKind[] = [
+  WagerTransactionKind.Win,
+  WagerTransactionKind.Refund,
+  WagerTransactionKind.Rollback,
+];
+
+const referenceFor = (kind: WagerTransactionKind): Partial<CreateWagerTransactionProps> =>
+  KINDS_WITH_REFERENCE.includes(kind) ? { referenceExternalTransactionId: "ext-0" } : {};
+
 const bet = (overrides: Partial<CreateWagerTransactionProps> = {}) => WagerTransaction.create(props(overrides));
 
 const processed = (overrides: Partial<CreateWagerTransactionProps> = {}) => {
@@ -131,7 +140,7 @@ describe("WagerTransaction", () => {
     test.each(Object.values(WagerTransactionKind).filter((kind) => kind !== WagerTransactionKind.Opening))(
       "%s com valor zero é inválido",
       (kind) => {
-        expect(() => bet({ kind, money: Money.zero("BRL"), referenceExternalTransactionId: "ext-0" })).toThrow(
+        expect(() => bet({ kind, money: Money.zero("BRL"), ...referenceFor(kind) })).toThrow(
           InvalidWagerTransactionError,
         );
       },
@@ -150,6 +159,14 @@ describe("WagerTransaction", () => {
       },
     );
 
+    test.each([WagerTransactionKind.Bet, WagerTransactionKind.Loss])(
+      "%s não referencia nada: referenceExternalTransactionId é inválido",
+      (kind) => {
+        expect(() => bet({ kind, referenceExternalTransactionId: "ext-0" })).toThrow(InvalidWagerTransactionError);
+        expect(bet({ kind }).referenceExternalTransactionId).toBeUndefined();
+      },
+    );
+
     test("WIN pode referenciar a BET da rodada, mas não exige", () => {
       expect(bet({ kind: WagerTransactionKind.Win }).requiresReference()).toBe(false);
       const win = bet({ kind: WagerTransactionKind.Win, referenceExternalTransactionId: "ext-0" });
@@ -165,7 +182,7 @@ describe("WagerTransaction", () => {
       [WagerTransactionKind.Refund, true],
       [WagerTransactionKind.Rollback, true],
     ])("%s affectsBalance = %p", (kind, expected) => {
-      expect(bet({ kind, referenceExternalTransactionId: "ext-0" }).affectsBalance()).toBe(expected);
+      expect(bet({ kind, ...referenceFor(kind) }).affectsBalance()).toBe(expected);
     });
 
     test("matchesPayload compara o hash do payload", () => {
@@ -294,7 +311,7 @@ describe("WagerTransaction", () => {
       [WagerTransactionKind.Win, LedgerDirection.Credit],
       [WagerTransactionKind.Refund, LedgerDirection.Credit],
     ])("%s → %s", (kind, direction) => {
-      expect(bet({ kind, referenceExternalTransactionId: "ext-0" }).ledgerDirectionFor()).toBe(direction);
+      expect(bet({ kind, ...referenceFor(kind) }).ledgerDirectionFor()).toBe(direction);
     });
 
     test.each([
@@ -302,7 +319,7 @@ describe("WagerTransaction", () => {
       [WagerTransactionKind.Win, LedgerDirection.Debit],
       [WagerTransactionKind.Refund, LedgerDirection.Debit],
     ])("ROLLBACK de %s → %s", (referenceKind, direction) => {
-      const reference = processed({ kind: referenceKind, referenceExternalTransactionId: "ext-0" });
+      const reference = processed({ kind: referenceKind, ...referenceFor(referenceKind) });
       expect(reversal(WagerTransactionKind.Rollback).ledgerDirectionFor(reference)).toBe(direction);
     });
 
@@ -323,7 +340,7 @@ describe("WagerTransaction", () => {
     test.each([WagerTransactionKind.Bet, WagerTransactionKind.Win, WagerTransactionKind.Refund])(
       "ROLLBACK de %s processado é válido",
       (kind) => {
-        const reference = processed({ kind, referenceExternalTransactionId: "ext-0" });
+        const reference = processed({ kind, ...referenceFor(kind) });
         expect(() => reversal(WagerTransactionKind.Rollback).validateReversalOf(reference)).not.toThrow();
       },
     );
@@ -344,7 +361,7 @@ describe("WagerTransaction", () => {
     test.each([WagerTransactionKind.Win, WagerTransactionKind.Loss, WagerTransactionKind.Refund])(
       "REFUND de %s → INVALID_REFERENCE_KIND",
       (kind) => {
-        const reference = processed({ kind, referenceExternalTransactionId: "ext-0" });
+        const reference = processed({ kind, ...referenceFor(kind) });
         expectViolation(
           () => reversal(WagerTransactionKind.Refund).validateReversalOf(reference),
           FailureCode.InvalidReferenceKind,
@@ -355,7 +372,7 @@ describe("WagerTransaction", () => {
     test.each([WagerTransactionKind.Loss, WagerTransactionKind.Rollback])(
       "ROLLBACK de %s → INVALID_REFERENCE_KIND",
       (kind) => {
-        const reference = processed({ kind, referenceExternalTransactionId: "ext-0" });
+        const reference = processed({ kind, ...referenceFor(kind) });
         expectViolation(
           () => reversal(WagerTransactionKind.Rollback).validateReversalOf(reference),
           FailureCode.InvalidReferenceKind,

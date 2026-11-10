@@ -75,6 +75,11 @@ const TERMINAL_STATUSES: ReadonlySet<WagerTransactionStatus> = new Set([
   WagerTransactionStatus.Failed,
 ]);
 
+const KINDS_WITHOUT_REFERENCE: ReadonlySet<WagerTransactionKind> = new Set([
+  WagerTransactionKind.Bet,
+  WagerTransactionKind.Loss,
+]);
+
 const REVERSIBLE_KINDS_BY_REVERSAL: ReadonlyMap<WagerTransactionKind, ReadonlySet<WagerTransactionKind>> = new Map([
   [WagerTransactionKind.Refund, new Set([WagerTransactionKind.Bet])],
   [
@@ -266,6 +271,9 @@ export class WagerTransaction {
     }
     if (REVERSIBLE_KINDS_BY_REVERSAL.has(props.kind) && !props.referenceExternalTransactionId) {
       throw new InvalidWagerTransactionError(`${props.kind} exige referenceExternalTransactionId`);
+    }
+    if (KINDS_WITHOUT_REFERENCE.has(props.kind) && props.referenceExternalTransactionId !== undefined) {
+      throw new InvalidWagerTransactionError(`${props.kind} não referencia outra transação`);
     }
   }
 

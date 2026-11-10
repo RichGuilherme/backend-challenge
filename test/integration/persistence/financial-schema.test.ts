@@ -269,6 +269,16 @@ describe("schema financeiro", () => {
       ],
       ["OPENING de provider externo", { kind: "OPENING" }, "wager_transactions_opening_internal_provider"],
       ["BET do provider interno", { provider_id: "internal" }, "wager_transactions_opening_internal_provider"],
+      [
+        "BET com referência",
+        { kind: "BET", reference_external_transaction_id: "ext-x" },
+        "wager_transactions_bet_loss_have_no_reference",
+      ],
+      [
+        "LOSS com referência",
+        { kind: "LOSS", reference_external_transaction_id: "ext-x" },
+        "wager_transactions_bet_loss_have_no_reference",
+      ],
       ["REFUND sem referência", { kind: "REFUND" }, "wager_transactions_reversal_requires_reference"],
       ["ROLLBACK sem referência", { kind: "ROLLBACK" }, "wager_transactions_reversal_requires_reference"],
       [
