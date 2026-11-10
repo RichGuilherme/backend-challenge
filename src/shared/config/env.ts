@@ -115,6 +115,20 @@ export function loadLoggingConfig(env: Env = process.env): LoggingConfig {
   return { service: env.SERVICE_NAME || "wagering", level: env.LOG_LEVEL || "info" };
 }
 
+export type AuthConfig = { enabled: false } | { enabled: true; issuer: string; jwksUri: string; audience: string };
+
+export function loadAuthConfig(env: Env = process.env): AuthConfig {
+  const flag = env.AUTH_ENABLED;
+  if (flag === undefined || flag === "false") return { enabled: false };
+  if (flag !== "true") throw new Error(`AUTH_ENABLED inválido: ${flag} (use true ou false)`);
+  return {
+    enabled: true,
+    issuer: requireEnv("AUTH_ISSUER", env),
+    jwksUri: requireEnv("AUTH_JWKS_URI", env),
+    audience: requireEnv("AUTH_AUDIENCE", env),
+  };
+}
+
 export function loadHealthTimeoutMs(env: Env = process.env): number {
   return requirePositiveInteger("HEALTH_CHECK_TIMEOUT_MS", env);
 }
