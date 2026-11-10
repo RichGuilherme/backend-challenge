@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { testDatabaseConfig } from "./database";
 import { ServiceProcess, type TerminatedService } from "./service-process";
 
 export type Role = "api" | "consumer" | "outbox-publisher" | "reference-worker";
@@ -25,6 +26,7 @@ export interface KillRecord {
 
 export class Cluster {
   private readonly slots = new Map<Role, (ServiceProcess | undefined)[]>();
+  private readonly topology = new Map<Role, number>();
   private readonly spawned = new Set<ServiceProcess>();
   private readonly retired: Promise<TerminatedService>[] = [];
   readonly kills: KillRecord[] = [];
@@ -32,6 +34,7 @@ export class Cluster {
   constructor(private readonly env: Record<string, string>) {}
 
   async start(role: Role, count: number): Promise<void> {
+    this.topology.set(role, count);
     const started = await Promise.all(Array.from({ length: count }, () => this.spawn(role)));
     this.slots.set(role, started);
   }
@@ -64,13 +67,23 @@ export class Cluster {
     group[index] = await this.spawn(role);
   }
 
+  async restartAll(signal: NodeJS.Signals): Promise<TerminatedService[]> {
+    const stopped = await this.stopEverything(signal);
+    await Promise.all([...this.topology].map(([role, count]) => this.start(role, count)));
+    return stopped;
+  }
+
   async terminateAll(): Promise<TerminatedService[]> {
+    const results = await this.stopEverything("SIGTERM");
+    await Promise.all(this.retired);
+    return results;
+  }
+
+  private async stopEverything(signal: NodeJS.Signals): Promise<TerminatedService[]> {
     const live = [...this.spawned];
     this.spawned.clear();
     this.slots.clear();
-    const results = await Promise.all(live.map((instance) => instance.terminate()));
-    await Promise.all(this.retired);
-    return results;
+    return Promise.all(live.map((instance) => instance.terminate(signal)));
   }
 
   private async spawn(role: Role): Promise<ServiceProcess> {
@@ -79,4 +92,16 @@ export class Cluster {
     await instance.waitUntilReachable("/health/live");
     return instance;
   }
+}
+
+export function loadTestEnv(): Record<string, string> {
+  return {
+    DB_NAME: testDatabaseConfig().name,
+    LOG_LEVEL: "error",
+    DB_LOCK_TIMEOUT_MS: "10000",
+    OUTBOX_POLL_INTERVAL_MS: "100",
+    PENDING_REFERENCE_POLL_INTERVAL_MS: "200",
+    PENDING_REFERENCE_RETRY_BASE_MS: "200",
+    PENDING_REFERENCE_RETRY_CAP_MS: "2000",
+  };
 }
