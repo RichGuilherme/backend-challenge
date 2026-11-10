@@ -40,6 +40,8 @@ x-app-service: &app-service
       condition: service_healthy
     localstack:
       condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
 
 services:
   postgres:
@@ -73,6 +75,17 @@ services:
       interval: 2s
       timeout: 5s
       retries: 60
+
+  migrate:
+    <<: *app-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bun", "run", "src/main/migrate.ts", "up"]
+    restart: "no"
+    environment:
+      <<: *app-environment
+      SERVICE_NAME: migrate
 
   app:
     <<: *app-service
