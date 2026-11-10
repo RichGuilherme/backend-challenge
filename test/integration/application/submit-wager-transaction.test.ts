@@ -8,7 +8,7 @@ import {
   IdempotencyConflictError,
   WagerTransactionNotFoundError,
 } from "../../../src/application/wagering/wagering.errors";
-import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
+import type { UnitOfWork } from "../../../src/application/ports/unit-of-work";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WalletNotFoundError, WalletPlayerMismatchError } from "../../../src/application/wallet/wallet.errors";
 import { FailureCode } from "../../../src/domain/wagering/failure-code";
@@ -20,25 +20,16 @@ import { submitCommand } from "../../support/commands";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 
 let context: TestContext;
-let openWallet: OpenWalletUseCase;
 let submit: SubmitWagerTransactionUseCase;
 let getTransaction: GetWagerTransactionUseCase;
 
 beforeAll(async () => {
   context = await createTestContext();
-  openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
   submit = new SubmitWagerTransactionUseCase(context.unitOfWork, context.ids, context.clock);
   getTransaction = new GetWagerTransactionUseCase(context.unitOfWork);
 });
 
 afterAll(() => context?.close());
-
-const open = (amount = "100.00"): Promise<WalletView> =>
-  openWallet.execute({
-    playerId: `player-${crypto.randomUUID()}`,
-    correlationId: "test-correlation",
-    initialBalance: { amount, currency: "BRL" },
-  });
 
 const command = (wallet: WalletView, overrides: Partial<SubmitWagerTransactionCommand> = {}) =>
   submitCommand(wallet.id, wallet.playerId, overrides);
@@ -55,7 +46,7 @@ async function walletState(walletId: string) {
 describe("SubmitWagerTransactionUseCase", () => {
   describe("BET, WIN e LOSS", () => {
     test("BET debita e responde no formato do README", async () => {
-      const wallet = await open("1000.00");
+      const wallet = await context.openWallet("1000.00");
 
       const result = await submit.execute(command(wallet, { money: { amount: "25.00", currency: "BRL" } }));
 
@@ -71,7 +62,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("WIN credita", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const result = await submit.execute(
         command(wallet, { kind: WagerTransactionKind.Win, money: { amount: "60.00", currency: "BRL" } }),
       );
@@ -80,7 +71,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("LOSS é processado sem mexer no saldo, na versão nem no ledger", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const result = await submit.execute(command(wallet, { kind: WagerTransactionKind.Loss }));
 
       expect(result.status).toBe(WagerTransactionStatus.Processed);
@@ -95,7 +86,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("BET sem saldo é REJECTED, fica registrada e não debita", async () => {
-      const wallet = await open("10.00");
+      const wallet = await context.openWallet("10.00");
 
       const result = await submit.execute(command(wallet, { money: { amount: "10.01", currency: "BRL" } }));
 
@@ -109,7 +100,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("moeda diferente da wallet é REJECTED com CURRENCY_MISMATCH", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const result = await submit.execute(command(wallet, { money: { amount: "1.00", currency: "USD" } }));
       expect(result).toMatchObject({
         status: WagerTransactionStatus.Rejected,
@@ -121,7 +112,7 @@ describe("SubmitWagerTransactionUseCase", () => {
 
   describe("idempotência", () => {
     test("replay devolve o resultado original, inclusive o saldo daquele momento", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet);
       const original = await submit.execute(bet);
       await submit.execute(
@@ -137,14 +128,14 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("replay de rejeição devolve a mesma rejeição", async () => {
-      const wallet = await open("1.00");
+      const wallet = await context.openWallet("1.00");
       const bet = command(wallet);
       const original = await submit.execute(bet);
       expect(await submit.execute(bet)).toEqual({ ...original, idempotentReplay: true });
     });
 
     test("25.5 e 25.50 são a mesma operação", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet, { money: { amount: "25.5", currency: "BRL" } });
       const original = await submit.execute(bet);
       const replay = await submit.execute({ ...bet, money: { amount: "25.50", currency: "BRL" } });
@@ -152,7 +143,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("mesma chave com payload diferente é conflito e não aplica nada", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet);
       await submit.execute(bet);
 
@@ -164,7 +155,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("mesma transação do provedor com outra chave é conflito", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet);
       await submit.execute(bet);
 
@@ -188,7 +179,7 @@ describe("SubmitWagerTransactionUseCase", () => {
       });
 
     test("WIN com referência é aplicado sem esperar nem validar a BET, e a referência fica guardada", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const win = command(wallet, {
         kind: WagerTransactionKind.Win,
         money: { amount: "60.00", currency: "BRL" },
@@ -206,7 +197,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("REFUND de BET processada devolve o valor e vincula a referência", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet);
       const betResult = await submit.execute(bet);
 
@@ -219,7 +210,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("segunda reversão da mesma referência, de qualquer tipo, é REFERENCE_ALREADY_REVERSED", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bet = command(wallet);
       await submit.execute(bet);
       await submit.execute(reversal(wallet, WagerTransactionKind.Refund, bet));
@@ -235,7 +226,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("ROLLBACK de WIN já gasto é REVERSAL_INSUFFICIENT_FUNDS", async () => {
-      const wallet = await open("0");
+      const wallet = await context.openWallet("0");
       const win = command(wallet, { kind: WagerTransactionKind.Win, money: { amount: "60.00", currency: "BRL" } });
       await submit.execute(win);
       await submit.execute(command(wallet, { money: { amount: "50.00", currency: "BRL" } }));
@@ -251,7 +242,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("REFUND antes da BET fica PENDING_REFERENCE e não mexe no saldo", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const futureBet = command(wallet);
 
       const result = await submit.execute(reversal(wallet, WagerTransactionKind.Refund, futureBet));
@@ -268,7 +259,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("wallet de outro player", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       await expect(submit.execute(submitCommand(wallet.id, "player-intruso"))).rejects.toBeInstanceOf(
         WalletPlayerMismatchError,
       );
@@ -276,7 +267,7 @@ describe("SubmitWagerTransactionUseCase", () => {
     });
 
     test("OPENING submetido de fora é inválido", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       await expect(submit.execute(command(wallet, { kind: WagerTransactionKind.Opening }))).rejects.toBeInstanceOf(
         InvalidWagerTransactionError,
       );
@@ -287,7 +278,7 @@ describe("SubmitWagerTransactionUseCase", () => {
 
 describe("GetWagerTransactionUseCase", () => {
   test("consulta por id interno e por id do provedor", async () => {
-    const wallet = await open();
+    const wallet = await context.openWallet();
     const bet = command(wallet);
     const result = await submit.execute(bet);
 
@@ -306,5 +297,65 @@ describe("GetWagerTransactionUseCase", () => {
 
   test("transação inexistente", async () => {
     await expect(getTransaction.byId(crypto.randomUUID())).rejects.toBeInstanceOf(WagerTransactionNotFoundError);
+  });
+});
+
+function blindOnFirstRun(real: UnitOfWork): UnitOfWork {
+  let first = true;
+  const lookups = new Set<PropertyKey>(["findByIdempotencyKey", "findByProviderReference"]);
+  return {
+    run(work) {
+      if (!first) return real.run(work);
+      first = false;
+      return real.run((scope) => {
+        const transactions = new Proxy(scope.transactions, {
+          get(target, property) {
+            if (lookups.has(property)) return async () => undefined;
+            const member = Reflect.get(target, property, target);
+            return typeof member === "function" ? member.bind(target) : member;
+          },
+        });
+        return work({ ...scope, transactions });
+      });
+    },
+  };
+}
+
+describe("corrida na violação de unicidade", () => {
+  const racing = () =>
+    new SubmitWagerTransactionUseCase(blindOnFirstRun(context.unitOfWork), context.ids, context.clock);
+
+  test("mesma chave e payload: a nova tentativa devolve o replay sem novo débito", async () => {
+    const wallet = await context.openWallet("100.00");
+    const bet = command(wallet, { money: { amount: "25.00", currency: "BRL" } });
+    const original = await submit.execute(bet);
+
+    const result = await racing().execute(bet);
+
+    expect(result).toEqual({ ...original, idempotentReplay: true });
+    expect(await walletState(wallet.id)).toMatchObject({ balance: "75.00", entries: 2, transactions: 2 });
+    await expectWalletMatchesLedger(context.sql, wallet.id);
+  });
+
+  test("mesma chave com payload diferente vira PAYLOAD_MISMATCH", async () => {
+    const wallet = await context.openWallet("100.00");
+    const bet = command(wallet, { money: { amount: "25.00", currency: "BRL" } });
+    await submit.execute(bet);
+
+    const attempt = racing().execute({ ...bet, money: { amount: "30.00", currency: "BRL" } });
+
+    await expect(attempt).rejects.toMatchObject({ reason: "PAYLOAD_MISMATCH" });
+    expect(await walletState(wallet.id)).toMatchObject({ balance: "75.00", entries: 2 });
+  });
+
+  test("mesma transação do provedor com outra chave vira KEY_MISMATCH", async () => {
+    const wallet = await context.openWallet("100.00");
+    const bet = command(wallet);
+    await submit.execute(bet);
+
+    const attempt = racing().execute({ ...bet, idempotencyKey: "outra-chave" });
+
+    await expect(attempt).rejects.toMatchObject({ reason: "KEY_MISMATCH" });
+    expect(await walletState(wallet.id)).toMatchObject({ balance: "75.00", entries: 2 });
   });
 });

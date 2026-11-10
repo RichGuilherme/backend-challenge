@@ -27,7 +27,11 @@ export interface SubmitOptions {
   withinTransaction?: (scope: TransactionScope, result: SubmissionResult) => Promise<void>;
 }
 
-export class SubmitWagerTransactionUseCase {
+export interface WagerSubmitter {
+  execute(command: SubmitWagerTransactionCommand, options?: SubmitOptions): Promise<SubmissionResult>;
+}
+
+export class SubmitWagerTransactionUseCase implements WagerSubmitter {
   private readonly settlement = new WagerSettlement();
 
   constructor(
@@ -50,11 +54,12 @@ export class SubmitWagerTransactionUseCase {
     options: SubmitOptions,
   ): Promise<SubmissionResult> {
     const payloadHash = computePayloadHash(command);
+    const attempt = () => this.runWith(options, (scope) => this.submit(scope, command, payloadHash));
     try {
-      return await this.runWith(options, (scope) => this.submit(scope, command, payloadHash));
+      return await attempt();
     } catch (error) {
       if (!(error instanceof DuplicateWagerTransactionError)) throw error;
-      return this.runWith(options, (scope) => this.replayAfterRace(scope, command, payloadHash));
+      return attempt();
     }
   }
 
@@ -119,17 +124,6 @@ export class SubmitWagerTransactionUseCase {
       outboxMessagesForSettlement(transaction, wallet, ledgerEntry, eventContextFactory(command, this.ids, at)),
     );
     return toSubmissionResult(transaction, wallet, false);
-  }
-
-  private async replayAfterRace(
-    scope: TransactionScope,
-    command: SubmitWagerTransactionCommand,
-    payloadHash: string,
-  ): Promise<SubmissionResult> {
-    const wallet = await this.lockWalletOf(scope, command);
-    const existing = await this.findExisting(scope, command, payloadHash);
-    if (!existing) throw new IdempotencyConflictError(command.idempotencyKey, "KEY_MISMATCH");
-    return toSubmissionResult(existing, wallet, true);
   }
 
   private async lockWalletOf(scope: TransactionScope, command: SubmitWagerTransactionCommand): Promise<Wallet> {
