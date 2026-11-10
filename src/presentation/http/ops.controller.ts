@@ -1,11 +1,13 @@
 import { Controller, Get, Inject, Res } from "@nestjs/common";
 import { OpsEndpoints, type OpsResponse } from "../ops/ops-endpoints";
+import { Public } from "./auth.guard";
 
 interface ResponseWriter {
   status(code: number): unknown;
   setHeader(name: string, value: string): unknown;
 }
 
+@Public()
 @Controller()
 export class OpsController {
   constructor(@Inject(OpsEndpoints) private readonly ops: OpsEndpoints) {}

@@ -1,5 +1,5 @@
 import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
-import { APP_FILTER } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { MikroORM } from "@mikro-orm/postgresql";
 import { LoggerModule } from "nestjs-pino";
@@ -7,6 +7,7 @@ import type { Registry } from "prom-client";
 import { PostgresCheck } from "../infrastructure/observability/postgres-check";
 import { createRootLogger } from "../infrastructure/observability/pino-logger";
 import { SqsQueueCheck } from "../infrastructure/observability/sqs-queue-check";
+import { AuthGuard } from "../presentation/http/auth.guard";
 import { HttpErrorFilter } from "../presentation/http/http-error.filter";
 import { assignCorrelationId, isQuietRequest } from "../presentation/http/http-logging";
 import { OpsController } from "../presentation/http/ops.controller";
@@ -45,6 +46,7 @@ import { UseCasesModule } from "./use-cases.module";
   controllers: [WalletsController, WageringTransactionsController, OpsController],
   providers: [
     { provide: APP_FILTER, useClass: HttpErrorFilter },
+    { provide: APP_GUARD, useClass: AuthGuard },
     {
       provide: HEALTH_SQS_CLIENT,
       useFactory: () => {
