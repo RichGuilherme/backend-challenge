@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, test } from "bun:test";
-import { resolve } from "node:path";
 import { DEFAULT_PENDING_REFERENCE_POLICY } from "../../../src/application/wagering/pending-reference";
 import { SubmitWagerTransactionUseCase } from "../../../src/application/wagering/submit-wager-transaction.use-case";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
@@ -9,8 +8,6 @@ import { submitCommand } from "../../support/commands";
 import { testDatabaseConfig } from "../../support/database";
 import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
-
-const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/reference-worker.ts");
 
 let context: TestContext;
 
@@ -49,11 +46,10 @@ describe("processo reference-worker", () => {
     );
     await submit.execute(bet);
 
-    const service = new ServiceProcess(
-      ENTRYPOINT,
-      { DB_NAME: testDatabaseConfig().name, PENDING_REFERENCE_POLL_INTERVAL_MS: "100" },
-      "OPS_PORT",
-    );
+    const service = new ServiceProcess("reference-worker", {
+      DB_NAME: testDatabaseConfig().name,
+      PENDING_REFERENCE_POLL_INTERVAL_MS: "100",
+    });
     let terminated!: Promise<TerminatedService>;
 
     try {

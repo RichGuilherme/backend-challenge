@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
 import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { WagerQueueHarness, wagerEnvelope } from "../../support/wager-queue";
-
-const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/consumer.ts");
 
 let context: TestContext;
 let harness: WagerQueueHarness;
@@ -46,7 +43,7 @@ describe("processo consumer", () => {
       wallet.id,
     );
 
-    const service = new ServiceProcess(ENTRYPOINT, { DB_NAME: testDatabaseConfig().name }, "OPS_PORT");
+    const service = new ServiceProcess("consumer", { DB_NAME: testDatabaseConfig().name });
     let terminated!: Promise<TerminatedService>;
 
     try {

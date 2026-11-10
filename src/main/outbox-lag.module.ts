@@ -3,10 +3,10 @@ import { MikroORM } from "@mikro-orm/postgresql";
 import type { Registry } from "prom-client";
 import { registerOutboxLagGauge } from "../infrastructure/observability/outbox-lag-gauge";
 import { SqlOutboxLagQuery } from "../infrastructure/persistence/sql-outbox-lag.query";
-import { PersistenceModule } from "./persistence.module";
+import { InfrastructureModule } from "./infrastructure.module";
 import { METRICS_REGISTRY } from "./tokens";
 
-@Module({ imports: [PersistenceModule] })
+@Module({ imports: [InfrastructureModule] })
 export class OutboxLagModule {
   constructor(@Inject(MikroORM) orm: MikroORM, @Inject(METRICS_REGISTRY) registry: Registry) {
     registerOutboxLagGauge(registry, new SqlOutboxLagQuery(orm.em));

@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
 import { ServiceProcess, type TerminatedService } from "../../support/service-process";
-
-const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/main.ts");
 
 let context: TestContext;
 
@@ -24,7 +21,7 @@ async function post(baseUrl: string, path: string, body: unknown, headers: Recor
 
 describe("processo da API", () => {
   test("loga em JSON com o correlationId da requisição, sem valores financeiros, e encerra no SIGTERM", async () => {
-    const service = new ServiceProcess(ENTRYPOINT, { DB_NAME: testDatabaseConfig().name, SERVICE_NAME: "api" }, "PORT");
+    const service = new ServiceProcess("api", { DB_NAME: testDatabaseConfig().name, SERVICE_NAME: "api" });
     let terminated!: Promise<TerminatedService>;
     let responseCorrelationId: string | null = null;
     let transactionId = "";

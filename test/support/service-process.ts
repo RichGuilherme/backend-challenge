@@ -1,4 +1,15 @@
 import { expect } from "bun:test";
+import { resolve } from "node:path";
+
+export type Role = "api" | "consumer" | "outbox-publisher" | "reference-worker";
+
+const ENTRYPOINT = resolve(import.meta.dir, "../../src/main/main.ts");
+const PORT_VARIABLE: Record<Role, string> = {
+  api: "PORT",
+  consumer: "OPS_PORT",
+  "outbox-publisher": "OPS_PORT",
+  "reference-worker": "OPS_PORT",
+};
 
 export type LogLine = Record<string, unknown>;
 
@@ -23,9 +34,10 @@ export class ServiceProcess {
   private readonly stdout: Promise<string>;
   private readonly stderr: Promise<string>;
 
-  constructor(entrypoint: string, env: Record<string, string>, portVariable: string) {
+  constructor(role: Role, env: Record<string, string>) {
     this.port = freePort();
-    this.child = Bun.spawn(["bun", "run", entrypoint], {
+    const portVariable = PORT_VARIABLE[role];
+    this.child = Bun.spawn(["bun", "run", ENTRYPOINT, role], {
       env: { ...process.env, LOG_LEVEL: "info", ...env, [portVariable]: String(this.port) },
       stdout: "pipe",
       stderr: "pipe",

@@ -1,12 +1,9 @@
 import { afterAll, beforeAll, describe, test } from "bun:test";
-import { resolve } from "node:path";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
 import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { outboxByPartition } from "../../support/outbox";
-
-const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/outbox-publisher.ts");
 
 let context: TestContext;
 
@@ -32,11 +29,10 @@ describe("processo outbox-publisher", () => {
       correlationId: "corr-process",
     });
 
-    const service = new ServiceProcess(
-      ENTRYPOINT,
-      { DB_NAME: testDatabaseConfig().name, OUTBOX_POLL_INTERVAL_MS: "100" },
-      "OPS_PORT",
-    );
+    const service = new ServiceProcess("outbox-publisher", {
+      DB_NAME: testDatabaseConfig().name,
+      OUTBOX_POLL_INTERVAL_MS: "100",
+    });
     let terminated!: Promise<TerminatedService>;
 
     try {

@@ -103,7 +103,7 @@ services:
 
   outbox-publisher:
     <<: *app-service
-    command: ["bun", "run", "src/main/outbox-publisher.ts"]
+    command: ["bun", "run", "src/main/main.ts", "outbox-publisher"]
     environment:
       <<: *app-environment
       SERVICE_NAME: outbox-publisher
@@ -115,7 +115,7 @@ services:
 
   reference-worker:
     <<: *app-service
-    command: ["bun", "run", "src/main/reference-worker.ts"]
+    command: ["bun", "run", "src/main/main.ts", "reference-worker"]
     environment:
       <<: *app-environment
       SERVICE_NAME: reference-worker
@@ -127,7 +127,7 @@ services:
 
   consumer:
     <<: *app-service
-    command: ["bun", "run", "src/main/consumer.ts"]
+    command: ["bun", "run", "src/main/main.ts", "consumer"]
     environment:
       <<: *app-environment
       SERVICE_NAME: consumer

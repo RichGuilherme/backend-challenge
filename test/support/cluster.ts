@@ -1,22 +1,7 @@
-import { resolve } from "node:path";
 import { testDatabaseConfig } from "./database";
-import { ServiceProcess, type TerminatedService } from "./service-process";
+import { ServiceProcess, type Role, type TerminatedService } from "./service-process";
 
-export type Role = "api" | "consumer" | "outbox-publisher" | "reference-worker";
-
-const ENTRYPOINTS: Record<Role, string> = {
-  api: resolve(import.meta.dir, "../../src/main/main.ts"),
-  consumer: resolve(import.meta.dir, "../../src/main/consumer.ts"),
-  "outbox-publisher": resolve(import.meta.dir, "../../src/main/outbox-publisher.ts"),
-  "reference-worker": resolve(import.meta.dir, "../../src/main/reference-worker.ts"),
-};
-
-const PORT_VARIABLE: Record<Role, string> = {
-  api: "PORT",
-  consumer: "OPS_PORT",
-  "outbox-publisher": "OPS_PORT",
-  "reference-worker": "OPS_PORT",
-};
+export type { Role };
 
 export interface KillRecord {
   role: Role;
@@ -87,7 +72,7 @@ export class Cluster {
   }
 
   private async spawn(role: Role): Promise<ServiceProcess> {
-    const instance = new ServiceProcess(ENTRYPOINTS[role], { ...this.env, SERVICE_NAME: role }, PORT_VARIABLE[role]);
+    const instance = new ServiceProcess(role, { ...this.env, SERVICE_NAME: role });
     this.spawned.add(instance);
     await instance.waitUntilReachable("/health/live");
     return instance;

@@ -15,18 +15,13 @@ import { ReconcileWalletUseCase } from "../application/wallet/reconcile-wallet.u
 import { PrometheusDivergenceAlert } from "../infrastructure/observability/prometheus-divergence-alert";
 import { SqlLedgerQuery } from "../infrastructure/persistence/sql-ledger.query";
 import { SqlReconciliationQuery } from "../infrastructure/persistence/sql-reconciliation.query";
-import { SystemClock } from "../infrastructure/system/system-clock";
-import { UuidV7IdGenerator } from "../infrastructure/system/uuid-v7-id-generator";
 import { loadPendingReferenceConfig } from "../shared/config/env";
-import { ObservabilityModule } from "./observability.module";
-import { PersistenceModule } from "./persistence.module";
+import { InfrastructureModule } from "./infrastructure.module";
 import { CLOCK, ID_GENERATOR, LOGGER, OBSERVABILITY, METRICS_REGISTRY, UNIT_OF_WORK } from "./tokens";
 
 @Module({
-  imports: [PersistenceModule, ObservabilityModule],
+  imports: [InfrastructureModule],
   providers: [
-    { provide: CLOCK, useClass: SystemClock },
-    { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
     {
       provide: OpenWalletUseCase,
       inject: [UNIT_OF_WORK, ID_GENERATOR, CLOCK],
@@ -71,9 +66,6 @@ import { CLOCK, ID_GENERATOR, LOGGER, OBSERVABILITY, METRICS_REGISTRY, UNIT_OF_W
   exports: [
     GetWalletLedgerUseCase,
     ReconcileWalletUseCase,
-    PersistenceModule,
-    CLOCK,
-    ID_GENERATOR,
     OpenWalletUseCase,
     GetWalletUseCase,
     SubmitWagerTransactionUseCase,
