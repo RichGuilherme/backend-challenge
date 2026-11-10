@@ -86,3 +86,10 @@ export const wagerTransactionRequestedSchema = z.object({
 export type CreateWalletBody = z.output<typeof createWalletSchema>;
 export type SubmitWagerTransactionBody = z.output<typeof submitWagerTransactionSchema>;
 export type WagerTransactionRequested = z.output<typeof wagerTransactionRequestedSchema>;
+
+export const ledgerQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: z.string().min(1).optional(),
+});
+
+export type LedgerQueryParams = z.output<typeof ledgerQuerySchema>;
