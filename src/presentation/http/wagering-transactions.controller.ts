@@ -1,9 +1,13 @@
 import { Body, Controller, Get, Headers, HttpStatus, Inject, Param, Post, Res } from "@nestjs/common";
+import { assertProviderAccess } from "../../application/auth/provider-access";
+import type { ProviderIdentity } from "../../application/ports/token-verifier";
 import { METRICS, type Metrics } from "../../application/ports/metrics";
 import { GetWagerTransactionUseCase } from "../../application/wagering/get-wager-transaction.use-case";
 import { SubmitWagerTransactionUseCase } from "../../application/wagering/submit-wager-transaction.use-case";
 import type { SubmissionResult, WagerTransactionView } from "../../application/wagering/wager-transaction.view";
 import { WagerTransactionStatus } from "../../domain/wagering/wager-transaction-status";
+import { WagerTransactionNotFoundError } from "../../application/wagering/wagering.errors";
+import { Caller } from "./auth.guard";
 import { CORRELATION_ID_HEADER, resolveCorrelationId } from "./correlation-id";
 import {
   idempotencyKeySchema,
@@ -40,7 +44,9 @@ export class WageringTransactionsController {
     @Headers(CORRELATION_ID_HEADER) correlationHeader: string | undefined,
     @Body(new ZodValidationPipe(submitWagerTransactionSchema)) body: SubmitWagerTransactionBody,
     @Res({ passthrough: true }) response: StatusResponse,
+    @Caller() caller: ProviderIdentity | undefined,
   ): Promise<SubmissionResult> {
+    assertProviderAccess(caller, body.providerId);
     const idempotencyKey = idempotencyKeyPipe.transform(rawIdempotencyKey);
     const startedAt = performance.now();
     const result = await this.submitTransaction.execute({
@@ -56,10 +62,13 @@ export class WageringTransactionsController {
   }
 
   @Get("wagering/transactions/:transactionId")
-  findById(
+  async findById(
     @Param("transactionId", new ZodValidationPipe(uuidSchema)) transactionId: string,
+    @Caller() caller: ProviderIdentity | undefined,
   ): Promise<WagerTransactionView> {
-    return this.getTransaction.byId(transactionId);
+    const view = await this.getTransaction.byId(transactionId);
+    if (caller && view.providerId !== caller.providerId) throw new WagerTransactionNotFoundError(transactionId);
+    return view;
   }
 
   @Get("providers/:providerId/wagering/transactions/:externalTransactionId")
@@ -69,7 +78,9 @@ export class WageringTransactionsController {
       providerId: string;
       externalTransactionId: string;
     },
+    @Caller() caller: ProviderIdentity | undefined,
   ): Promise<WagerTransactionView> {
+    assertProviderAccess(caller, params.providerId);
     return this.getTransaction.byProviderReference(params.providerId, params.externalTransactionId);
   }
 }

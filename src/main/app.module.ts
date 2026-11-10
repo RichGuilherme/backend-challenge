@@ -4,6 +4,8 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { MikroORM } from "@mikro-orm/postgresql";
 import { LoggerModule } from "nestjs-pino";
 import type { Registry } from "prom-client";
+import { TOKEN_VERIFIER } from "../application/ports/token-verifier";
+import { JoseTokenVerifier } from "../infrastructure/auth/jose-token-verifier";
 import { createSqsClient } from "../infrastructure/messaging/aws-clients";
 import { PostgresCheck } from "../infrastructure/observability/postgres-check";
 import { createRootLogger } from "../infrastructure/observability/pino-logger";
@@ -15,7 +17,7 @@ import { OpsController } from "../presentation/http/ops.controller";
 import { WageringTransactionsController } from "../presentation/http/wagering-transactions.controller";
 import { WalletsController } from "../presentation/http/wallets.controller";
 import { OpsEndpoints } from "../presentation/ops/ops-endpoints";
-import { loadAwsConfig, loadConsumerConfig, loadLoggingConfig } from "../shared/config/env";
+import { loadAuthConfig, loadAwsConfig, loadConsumerConfig, loadLoggingConfig } from "../shared/config/env";
 import { createOpsEndpoints } from "./ops";
 import { InfrastructureModule } from "./infrastructure.module";
 import { OutboxLagModule } from "./outbox-lag.module";
@@ -49,6 +51,13 @@ import { UseCasesModule } from "./use-cases.module";
   controllers: [WalletsController, WageringTransactionsController, OpsController],
   providers: [
     { provide: APP_FILTER, useClass: HttpErrorFilter },
+    {
+      provide: TOKEN_VERIFIER,
+      useFactory: () => {
+        const config = loadAuthConfig();
+        return config.enabled ? new JoseTokenVerifier(config) : null;
+      },
+    },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: SQSClient, useFactory: () => createSqsClient(loadAwsConfig()) },
     {

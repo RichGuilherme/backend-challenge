@@ -1,5 +1,6 @@
 import { Catch, HttpException, HttpStatus, Inject, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
 import { LOGGER, type Logger } from "../../application/ports/logger";
+import { InvalidTokenError, ProviderForbiddenError } from "../../application/auth/auth.errors";
 import { TransientFailureError } from "../../application/shared/application-error";
 import { IdempotencyConflictError, WagerTransactionNotFoundError } from "../../application/wagering/wagering.errors";
 import {
@@ -55,6 +56,15 @@ export class HttpErrorFilter implements ExceptionFilter {
 }
 
 function toErrorResponse(exception: unknown): ErrorResponse {
+  if (exception instanceof InvalidTokenError) {
+    return {
+      ...error(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", exception.message),
+      headers: { "WWW-Authenticate": "Bearer" },
+    };
+  }
+  if (exception instanceof ProviderForbiddenError) {
+    return error(HttpStatus.FORBIDDEN, "PROVIDER_FORBIDDEN", exception.message);
+  }
   if (exception instanceof InvalidPayloadError) {
     return error(HttpStatus.BAD_REQUEST, "INVALID_PAYLOAD", exception.message, { details: exception.issues });
   }
