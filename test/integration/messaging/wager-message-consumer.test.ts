@@ -6,13 +6,13 @@ import {
 import { Registry } from "prom-client";
 import { NO_LOGGER } from "../../../src/application/ports/logger";
 import { SubmitWagerTransactionUseCase } from "../../../src/application/wagering/submit-wager-transaction.use-case";
-import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
 import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
 import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
 import { SqsWagerMessageQueue } from "../../../src/infrastructure/messaging/sqs-wager-message-queue";
 import { WAGER_CONSUMER_NAME, WagerMessageConsumer } from "../../../src/presentation/messaging/wager-message.consumer";
+import { holdWalletLock } from "../../support/wallet-lock";
 import { createTestContext, type TestContext } from "../../support/application";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { sampleOf } from "../../support/metrics";
@@ -21,7 +21,6 @@ import { WagerQueueHarness, wagerEnvelope } from "../../support/wager-queue";
 
 let context: TestContext;
 let harness: WagerQueueHarness;
-let openWallet: OpenWalletUseCase;
 
 const registry = new Registry();
 const metrics = new PrometheusMetrics(registry);
@@ -37,7 +36,6 @@ beforeAll(async () => {
   context = await createTestContext();
   harness = await WagerQueueHarness.connect();
   await harness.purge();
-  openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
 });
 
 afterAll(async () => {
@@ -49,13 +47,13 @@ function consumerWith(unitOfWork = context.unitOfWork, onConsumed?: () => void) 
   const submit = new SubmitWagerTransactionUseCase(unitOfWork, context.ids, context.clock);
   const consume = new ConsumeWagerMessageUseCase(unitOfWork, submit, context.clock, metrics);
   const observed = onConsumed
-    ? ({
+    ? {
         execute: async (message: WagerMessage) => {
           const outcome = await consume.execute(message);
           onConsumed();
           return outcome;
         },
-      } as ConsumeWagerMessageUseCase)
+      }
     : consume;
   return new WagerMessageConsumer(
     new SqsWagerMessageQueue(harness.client, harness.urls),
@@ -65,13 +63,6 @@ function consumerWith(unitOfWork = context.unitOfWork, onConsumed?: () => void) 
     () => 0,
   );
 }
-
-const open = (amount = "100.00"): Promise<WalletView> =>
-  openWallet.execute({
-    playerId: `player-${crypto.randomUUID()}`,
-    initialBalance: { amount, currency: "BRL" },
-    correlationId: "corr-consumer",
-  });
 
 function wagerData(wallet: WalletView, overrides: Record<string, unknown> = {}) {
   const externalTransactionId = `transaction-${crypto.randomUUID()}`;
@@ -109,7 +100,7 @@ async function pollUntilEmpty(consumer: WagerMessageConsumer): Promise<void> {
 
 describe("consumidor SQS de transações", () => {
   test("processa a mensagem com o mesmo caso de uso do HTTP, grava a inbox e dá ack só depois do commit", async () => {
-    const wallet = await open();
+    const wallet = await context.openWallet();
     const messageId = `msg-${crypto.randomUUID()}`;
     const durationsBefore = await metricValue("wagering_processing_duration_seconds_count", { source: "sqs" });
     await harness.send(wagerEnvelope(messageId, wagerData(wallet)), wallet.id, "corr-from-queue");
@@ -131,7 +122,7 @@ describe("consumidor SQS de transações", () => {
   });
 
   test("redelivery da mesma mensagem não duplica o efeito", async () => {
-    const wallet = await open();
+    const wallet = await context.openWallet();
     const messageId = `msg-${crypto.randomUUID()}`;
     const body = wagerEnvelope(messageId, wagerData(wallet));
     await harness.send(body, wallet.id);
@@ -147,7 +138,7 @@ describe("consumidor SQS de transações", () => {
   });
 
   test("mensagens diferentes com a mesma Idempotency-Key viram replay: uma transação, duas entradas na inbox", async () => {
-    const wallet = await open();
+    const wallet = await context.openWallet();
     const data = wagerData(wallet);
     const first = `msg-${crypto.randomUUID()}`;
     const second = `msg-${crypto.randomUUID()}`;
@@ -162,7 +153,7 @@ describe("consumidor SQS de transações", () => {
   });
 
   test("processo morre depois do commit e antes do ack: a reentrega não duplica", async () => {
-    const wallet = await open();
+    const wallet = await context.openWallet();
     const messageId = `msg-${crypto.randomUUID()}`;
     const data = wagerData(wallet);
     const submit = new SubmitWagerTransactionUseCase(context.unitOfWork, context.ids, context.clock);
@@ -181,7 +172,7 @@ describe("consumidor SQS de transações", () => {
   });
 
   test("rejeição de negócio é registrada e recebe ack, sem ir para a DLQ", async () => {
-    const wallet = await open("1.00");
+    const wallet = await context.openWallet("1.00");
     await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet)), wallet.id);
 
     await pollUntilEmpty(consumerWith());
@@ -204,7 +195,7 @@ describe("consumidor SQS de transações", () => {
 
     test("schema inválido (OPENING pela fila)", async () => {
       const before = await deadLettered("INVALID_PAYLOAD");
-      const wallet = await open();
+      const wallet = await context.openWallet();
       await harness.send(
         wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind: "OPENING" })),
         wallet.id,
@@ -218,7 +209,7 @@ describe("consumidor SQS de transações", () => {
 
     test.each(["BET", "LOSS"])("%s com referência é payload inválido", async (kind) => {
       const before = await deadLettered("INVALID_PAYLOAD");
-      const wallet = await open();
+      const wallet = await context.openWallet();
       await harness.send(
         wagerEnvelope(
           `msg-${crypto.randomUUID()}`,
@@ -245,7 +236,7 @@ describe("consumidor SQS de transações", () => {
 
     test("conflito de idempotência", async () => {
       const before = await deadLettered("IDEMPOTENCY_CONFLICT");
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const data = wagerData(wallet);
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, data), wallet.id);
       await harness.send(
@@ -261,27 +252,10 @@ describe("consumidor SQS de transações", () => {
   });
 
   describe("erro transitório", () => {
-    async function holdWalletLock(walletId: string) {
-      let release!: () => void;
-      const hold = new Promise<void>((resolve) => (release = resolve));
-      let signal!: () => void;
-      const locked = new Promise<void>((resolve) => (signal = resolve));
-      const holder = context.unitOfWork.run(async ({ wallets }) => {
-        await wallets.lockById(walletId);
-        signal();
-        await hold;
-      });
-      await locked;
-      return async () => {
-        release();
-        await holder;
-      };
-    }
-
     test("volta para a fila sem ack e é processado quando a falha passa", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const impatient = consumerWith(new PostgresUnitOfWork(context.orm, 100));
-      const releaseLock = await holdWalletLock(wallet.id);
+      const lock = await holdWalletLock(context.unitOfWork, wallet.id);
       const retriesBefore = await metricValue("wagering_message_retries_total");
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet)), wallet.id);
 
@@ -290,23 +264,23 @@ describe("consumidor SQS de transações", () => {
       expect(await transactionsOf(wallet.id)).toHaveLength(0);
       expect(await harness.takeDeadLetters(1_500)).toHaveLength(0);
 
-      await releaseLock();
+      await lock.release();
       await pollUntilEmpty(impatient);
       expect(await transactionsOf(wallet.id)).toEqual([expect.objectContaining({ status: "PROCESSED" })]);
       await expectWalletMatchesLedger(context.sql, wallet.id);
     });
 
     test("esgotadas as 5 tentativas, o redrive da fila manda para a DLQ", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const impatient = consumerWith(new PostgresUnitOfWork(context.orm, 100));
-      const releaseLock = await holdWalletLock(wallet.id);
+      const lock = await holdWalletLock(context.unitOfWork, wallet.id);
       const body = wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet));
       const retriesBefore = await metricValue("wagering_message_retries_total");
       const exhaustedBefore = await deadLettered("RETRIES_EXHAUSTED");
       await harness.send(body, wallet.id);
 
       for (let attempt = 0; attempt < 7; attempt += 1) await impatient.pollOnce();
-      await releaseLock();
+      await lock.release();
 
       expect(await metricValue("wagering_message_retries_total")).toBe(retriesBefore + MAX_RECEIVES - 1);
       expect(await deadLettered("RETRIES_EXHAUSTED")).toBe(exhaustedBefore + 1);
@@ -319,7 +293,7 @@ describe("consumidor SQS de transações", () => {
 
   describe("parada graciosa", () => {
     test("após requestStop termina a mensagem em andamento e devolve as demais na hora", async () => {
-      const wallet = await open();
+      const wallet = await context.openWallet();
       const bodies = [1, 2, 3].map(() => wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet)));
       for (const body of bodies) await harness.send(body, wallet.id);
 

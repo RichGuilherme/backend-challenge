@@ -3,10 +3,7 @@ import { NO_METRICS, type Metrics } from "../ports/metrics";
 import { DuplicateInboxMessageError } from "../ports/inbox.repository";
 import type { UnitOfWork } from "../ports/unit-of-work";
 import { computePayloadHash } from "../wagering/payload-hash";
-import type {
-  SubmitWagerTransactionCommand,
-  SubmitWagerTransactionUseCase,
-} from "../wagering/submit-wager-transaction.use-case";
+import type { SubmitWagerTransactionCommand, WagerSubmitter } from "../wagering/submit-wager-transaction.use-case";
 import type { SubmissionResult } from "../wagering/wager-transaction.view";
 import { InboxMessage } from "./inbox-message";
 
@@ -18,10 +15,14 @@ export interface WagerMessage {
 
 export type ConsumeOutcome = { kind: "PROCESSED"; result: SubmissionResult } | { kind: "DUPLICATE" };
 
-export class ConsumeWagerMessageUseCase {
+export interface WagerMessageHandler {
+  execute(message: WagerMessage): Promise<ConsumeOutcome>;
+}
+
+export class ConsumeWagerMessageUseCase implements WagerMessageHandler {
   constructor(
     private readonly unitOfWork: UnitOfWork,
-    private readonly submit: SubmitWagerTransactionUseCase,
+    private readonly submit: WagerSubmitter,
     private readonly clock: Clock,
     private readonly metrics: Metrics = NO_METRICS,
   ) {}

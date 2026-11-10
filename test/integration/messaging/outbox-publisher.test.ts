@@ -2,7 +2,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { SNSClient } from "@aws-sdk/client-sns";
 import { PublishOutboxBatchUseCase } from "../../../src/application/messaging/publish-outbox-batch.use-case";
 import { SubmitWagerTransactionUseCase } from "../../../src/application/wagering/submit-wager-transaction.use-case";
-import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { SnsEventPublisher } from "../../../src/infrastructure/messaging/sns-event-publisher";
 import { loadAwsConfig, loadOutboxConfig } from "../../../src/shared/config/env";
@@ -14,7 +13,6 @@ import { markAllPublished, outboxByPartition } from "../../support/outbox";
 let context: TestContext;
 let sns: SNSClient;
 let subscriber: EventSubscriberQueue;
-let openWallet: OpenWalletUseCase;
 let submit: SubmitWagerTransactionUseCase;
 
 const retryPolicy = { baseMs: 1_000, capMs: 300_000 };
@@ -25,7 +23,6 @@ beforeAll(async () => {
   const { region, endpoint } = loadAwsConfig();
   sns = new SNSClient({ region, ...(endpoint ? { endpoint } : {}) });
   subscriber = await EventSubscriberQueue.connect();
-  openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
   submit = new SubmitWagerTransactionUseCase(context.unitOfWork, context.ids, context.clock);
 });
 
@@ -43,11 +40,7 @@ const publishBatch = (publisher = realPublisher()) =>
   new PublishOutboxBatchUseCase(context.unitOfWork, publisher, context.clock, retryPolicy, halfJitter);
 
 async function walletWithBet(): Promise<WalletView> {
-  const wallet = await openWallet.execute({
-    playerId: `player-${crypto.randomUUID()}`,
-    initialBalance: { amount: "100.00", currency: "BRL" },
-    correlationId: "corr-test",
-  });
+  const wallet = await context.openWallet();
   await submit.execute(submitCommand(wallet.id, wallet.playerId));
   return wallet;
 }

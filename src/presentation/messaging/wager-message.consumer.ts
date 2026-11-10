@@ -1,7 +1,4 @@
-import type {
-  ConsumeWagerMessageUseCase,
-  WagerMessage,
-} from "../../application/messaging/consume-wager-message.use-case";
+import type { WagerMessage, WagerMessageHandler } from "../../application/messaging/consume-wager-message.use-case";
 import { fullJitterDelayMs, type BackoffPolicy, type RandomSource } from "../../application/messaging/full-jitter";
 import type { DeadLetterReason } from "../../application/ports/metrics";
 import type { Observability } from "../../application/ports/observability";
@@ -35,7 +32,7 @@ export class WagerMessageConsumer {
 
   constructor(
     private readonly queue: WagerMessageQueue,
-    private readonly consume: ConsumeWagerMessageUseCase,
+    private readonly consume: WagerMessageHandler,
     private readonly options: WagerMessageConsumerOptions,
     private readonly observability: Observability,
     private readonly random: RandomSource = Math.random,

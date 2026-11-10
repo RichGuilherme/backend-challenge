@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { holdWalletLock } from "../../support/wallet-lock";
 import { createTestContext, type TestContext } from "../../support/application";
 import { requestJson, startTestHttpApp, type TestHttpApp } from "../../support/http";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
@@ -207,16 +208,7 @@ describe("POST /wagering/transactions", () => {
   test("503 com Retry-After quando a wallet está travada além do lock_timeout", async () => {
     const wallet = await openWallet();
     const impatient = await startTestHttpApp({ DB_LOCK_TIMEOUT_MS: "200" });
-    let release!: () => void;
-    const hold = new Promise<void>((resolve) => (release = resolve));
-    let signal!: () => void;
-    const locked = new Promise<void>((resolve) => (signal = resolve));
-    const holder = context.unitOfWork.run(async ({ wallets }) => {
-      await wallets.lockById(wallet.id);
-      signal();
-      await hold;
-    });
-    await locked;
+    const lock = await holdWalletLock(context.unitOfWork, wallet.id);
 
     try {
       const body = transactionBody(wallet);
@@ -225,8 +217,7 @@ describe("POST /wagering/transactions", () => {
       expect(response.headers.get("retry-after")).toBe("1");
       expect(response.body).toMatchObject({ error: "TRANSIENT_FAILURE" });
     } finally {
-      release();
-      await holder;
+      await lock.release();
       await impatient.close();
     }
   });

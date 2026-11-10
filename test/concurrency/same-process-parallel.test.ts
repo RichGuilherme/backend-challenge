@@ -1,7 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { SubmitWagerTransactionUseCase } from "../../src/application/wagering/submit-wager-transaction.use-case";
-import { OpenWalletUseCase } from "../../src/application/wallet/open-wallet.use-case";
-import type { WalletView } from "../../src/application/wallet/wallet.view";
 import { FailureCode } from "../../src/domain/wagering/failure-code";
 import { WagerTransactionStatus } from "../../src/domain/wagering/wager-transaction-status";
 import { createTestContext, type TestContext } from "../support/application";
@@ -9,12 +7,10 @@ import { submitCommand } from "../support/commands";
 import { expectAllWalletsMatchLedger, expectWalletMatchesLedger } from "../support/ledger-invariant";
 
 let context: TestContext;
-let openWallet: OpenWalletUseCase;
 let submit: SubmitWagerTransactionUseCase;
 
 beforeAll(async () => {
   context = await createTestContext({ lockTimeoutMs: 10_000 });
-  openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
   submit = new SubmitWagerTransactionUseCase(context.unitOfWork, context.ids, context.clock);
 });
 
@@ -22,13 +18,6 @@ afterAll(async () => {
   await expectAllWalletsMatchLedger(context.sql);
   await context?.close();
 });
-
-const open = (amount: string): Promise<WalletView> =>
-  openWallet.execute({
-    playerId: `player-${crypto.randomUUID()}`,
-    correlationId: "test-correlation",
-    initialBalance: { amount, currency: "BRL" },
-  });
 
 async function debitsOf(walletId: string): Promise<number> {
   const [row] = await context.sql`
@@ -43,7 +32,7 @@ async function balanceOf(walletId: string): Promise<string> {
 
 describe("concorrência real no mesmo processo (transações SQL simultâneas)", () => {
   test("cenário obrigatório: 100.00 e duas apostas de 80.00 simultâneas", async () => {
-    const wallet = await open("100.00");
+    const wallet = await context.openWallet("100.00");
     const bet = () => submitCommand(wallet.id, wallet.playerId, { money: { amount: "80.00", currency: "BRL" } });
 
     const results = await Promise.all([submit.execute(bet()), submit.execute(bet())]);
@@ -59,7 +48,7 @@ describe("concorrência real no mesmo processo (transações SQL simultâneas)",
   });
 
   test("a mesma aposta 50 vezes em paralelo gera um único débito", async () => {
-    const wallet = await open("100.00");
+    const wallet = await context.openWallet("100.00");
     const sameBet = submitCommand(wallet.id, wallet.playerId);
 
     const results = await Promise.all(Array.from({ length: 50 }, () => submit.execute(sameBet)));
@@ -73,7 +62,7 @@ describe("concorrência real no mesmo processo (transações SQL simultâneas)",
   });
 
   test("hot wallet: 30 apostas distintas de 10.00 sobre 100.00 → exatamente 10 passam e o saldo zera", async () => {
-    const wallet = await open("100.00");
+    const wallet = await context.openWallet("100.00");
 
     const results = await Promise.all(
       Array.from({ length: 30 }, () =>
@@ -89,7 +78,7 @@ describe("concorrência real no mesmo processo (transações SQL simultâneas)",
   });
 
   test("wallets distintas em paralelo não interferem entre si", async () => {
-    const wallets = await Promise.all(Array.from({ length: 10 }, () => open("50.00")));
+    const wallets = await Promise.all(Array.from({ length: 10 }, () => context.openWallet("50.00")));
 
     await Promise.all(
       wallets.flatMap((wallet) =>

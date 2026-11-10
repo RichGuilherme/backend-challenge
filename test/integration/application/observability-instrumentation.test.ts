@@ -10,6 +10,7 @@ import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
 import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
 import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
+import { holdWalletLock } from "../../support/wallet-lock";
 import { createTestContext, type TestContext } from "../../support/application";
 import { submitCommand } from "../../support/commands";
 import { sampleOf } from "../../support/metrics";
@@ -223,23 +224,13 @@ describe("instrumentação do lock", () => {
   test("lock timeout conta um conflito de lock e continua sendo falha transitória", async () => {
     const wallet = await open();
     const impatient = new PostgresUnitOfWork(context.orm, 100, metrics);
-    let release!: () => void;
-    const hold = new Promise<void>((done) => (release = done));
-    let signal!: () => void;
-    const locked = new Promise<void>((done) => (signal = done));
-    const holder = context.unitOfWork.run(async ({ wallets }) => {
-      await wallets.lockById(wallet.id);
-      signal();
-      await hold;
-    });
-    await locked;
+    const lock = await holdWalletLock(context.unitOfWork, wallet.id);
 
     await expect(impatient.run(({ wallets }) => wallets.lockById(wallet.id))).rejects.toBeInstanceOf(
       TransientFailureError,
     );
 
-    release();
-    await holder;
+    await lock.release();
     expect(await sampleOf(registry, "wagering_lock_conflicts_total")).toBe(1);
   });
 

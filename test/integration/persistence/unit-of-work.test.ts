@@ -1,58 +1,26 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { TransientFailureError } from "../../../src/application/shared/application-error";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
-import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import { WagerTransaction } from "../../../src/domain/wagering/wager-transaction";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
 import type { WagerTransactionRepository } from "../../../src/domain/wagering/wager-transaction.repository";
 import { Wallet } from "../../../src/domain/wallet/wallet";
 import { WalletVersionConflictError } from "../../../src/domain/wallet/wallet.errors";
 import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
+import { holdWalletLock } from "../../support/wallet-lock";
 import { createTestContext, type TestContext } from "../../support/application";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { brl } from "../../support/money";
 
 let context: TestContext;
-let openWallet: OpenWalletUseCase;
 
 beforeAll(async () => {
   context = await createTestContext();
-  openWallet = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
 });
 
 afterAll(() => context?.close());
 
 const newPlayer = () => `player-${crypto.randomUUID()}`;
-
-const openWith = (amount: string): Promise<WalletView> =>
-  openWallet.execute({
-    playerId: newPlayer(),
-    correlationId: "test-correlation",
-    initialBalance: { amount, currency: "BRL" },
-  });
-
-function deferred(): { promise: Promise<void>; resolve: () => void } {
-  let resolve!: () => void;
-  const promise = new Promise<void>((done) => (resolve = done));
-  return { promise, resolve };
-}
-
-async function holdWalletLock(walletId: string): Promise<{ release: () => Promise<void> }> {
-  const locked = deferred();
-  const hold = deferred();
-  const holder = context.unitOfWork.run(async ({ wallets }) => {
-    await wallets.lockById(walletId);
-    locked.resolve();
-    await hold.promise;
-  });
-  await locked.promise;
-  return {
-    async release() {
-      hold.resolve();
-      await holder;
-    },
-  };
-}
 
 async function insertBet(transactions: WagerTransactionRepository, wallet: WalletView, amount: string) {
   const externalTransactionId = `ext-${crypto.randomUUID()}`;
@@ -75,7 +43,7 @@ async function insertBet(transactions: WagerTransactionRepository, wallet: Walle
 
 describe("PostgresUnitOfWork e repositórios", () => {
   test("grava e relê a wallet com valor exato, além da precisão de float", async () => {
-    const view = await openWith("123456789012345678.99");
+    const view = await context.openWallet("123456789012345678.99");
 
     const wallet = await context.unitOfWork.run(({ wallets }) => wallets.findById(view.id));
 
@@ -106,8 +74,8 @@ describe("PostgresUnitOfWork e repositórios", () => {
   });
 
   test("lock da wallet: a segunda transação espera e, estourado o lock_timeout, vira falha transitória", async () => {
-    const view = await openWith("10.00");
-    const lock = await holdWalletLock(view.id);
+    const view = await context.openWallet("10.00");
+    const lock = await holdWalletLock(context.unitOfWork, view.id);
     const shortTimeout = new PostgresUnitOfWork(context.orm, 200);
 
     const startedAt = performance.now();
@@ -120,9 +88,9 @@ describe("PostgresUnitOfWork e repositórios", () => {
   });
 
   test("o lock é por wallet: outra wallet não espera", async () => {
-    const locked = await openWith("10.00");
-    const free = await openWith("10.00");
-    const lock = await holdWalletLock(locked.id);
+    const locked = await context.openWallet("10.00");
+    const free = await context.openWallet("10.00");
+    const lock = await holdWalletLock(context.unitOfWork, locked.id);
     const shortTimeout = new PostgresUnitOfWork(context.orm, 200);
 
     const other = await shortTimeout.run(({ wallets }) => wallets.lockById(free.id));
@@ -132,7 +100,7 @@ describe("PostgresUnitOfWork e repositórios", () => {
   });
 
   test("update com versão desatualizada é rejeitado e não grava nada", async () => {
-    const view = await openWith("100.00");
+    const view = await context.openWallet("100.00");
     const load = async () => (await context.unitOfWork.run(({ wallets }) => wallets.findById(view.id)))!;
     const stale = await load();
     const fresh = await load();
