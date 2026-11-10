@@ -62,8 +62,8 @@ export class ServiceProcess {
     expect(await metrics.text()).toContain("wagering_");
   }
 
-  async terminate(): Promise<TerminatedService> {
-    this.child.kill("SIGTERM");
+  async terminate(signal: NodeJS.Signals = "SIGTERM"): Promise<TerminatedService> {
+    this.child.kill(signal);
     const exitCode = await this.child.exited;
     const [stdout, stderr] = await Promise.all([this.stdout, this.stderr]);
     return { exitCode, stdout, stderr, logs: parseLogLines(stdout) };
@@ -74,7 +74,13 @@ export function parseLogLines(stdout: string): LogLine[] {
   return stdout
     .split("\n")
     .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line) as LogLine);
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line) as LogLine];
+      } catch {
+        return [];
+      }
+    });
 }
 
 export function expectCleanShutdown(result: TerminatedService, startedMessage: string, stoppedMessage: string): void {
