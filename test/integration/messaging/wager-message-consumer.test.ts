@@ -10,7 +10,7 @@ import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.u
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
 import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
-import { MikroOrmUnitOfWork } from "../../../src/infrastructure/persistence/mikro-orm-unit-of-work";
+import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
 import { SqsWagerMessageQueue } from "../../../src/infrastructure/messaging/sqs-wager-message-queue";
 import { WAGER_CONSUMER_NAME, WagerMessageConsumer } from "../../../src/presentation/messaging/wager-message.consumer";
 import { createTestContext, type TestContext } from "../../support/application";
@@ -280,7 +280,7 @@ describe("consumidor SQS de transações", () => {
 
     test("volta para a fila sem ack e é processado quando a falha passa", async () => {
       const wallet = await open();
-      const impatient = consumerWith(new MikroOrmUnitOfWork(context.orm, 100));
+      const impatient = consumerWith(new PostgresUnitOfWork(context.orm, 100));
       const releaseLock = await holdWalletLock(wallet.id);
       const retriesBefore = await metricValue("wagering_message_retries_total");
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet)), wallet.id);
@@ -298,7 +298,7 @@ describe("consumidor SQS de transações", () => {
 
     test("esgotadas as 5 tentativas, o redrive da fila manda para a DLQ", async () => {
       const wallet = await open();
-      const impatient = consumerWith(new MikroOrmUnitOfWork(context.orm, 100));
+      const impatient = consumerWith(new PostgresUnitOfWork(context.orm, 100));
       const releaseLock = await holdWalletLock(wallet.id);
       const body = wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet));
       const retriesBefore = await metricValue("wagering_message_retries_total");

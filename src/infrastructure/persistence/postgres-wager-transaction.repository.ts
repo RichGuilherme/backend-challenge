@@ -8,7 +8,7 @@ import { WagerTransactionStatus } from "../../domain/wagering/wager-transaction-
 import { toWagerTransaction, toWagerTransactionRow } from "./mappers";
 import { WagerTransactionRecord, type WagerTransactionRow } from "./records";
 
-export class MikroOrmWagerTransactionRepository implements WagerTransactionRepository {
+export class PostgresWagerTransactionRepository implements WagerTransactionRepository {
   constructor(private readonly em: EntityManager) {}
 
   findById(id: string): Promise<WagerTransaction | undefined> {

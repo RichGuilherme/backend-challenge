@@ -9,7 +9,7 @@ import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.u
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
 import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
-import { MikroOrmUnitOfWork } from "../../../src/infrastructure/persistence/mikro-orm-unit-of-work";
+import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
 import { createTestContext, type TestContext } from "../../support/application";
 import { submitCommand } from "../../support/commands";
 import { sampleOf } from "../../support/metrics";
@@ -222,7 +222,7 @@ describe("instrumentação do worker de referências", () => {
 describe("instrumentação do lock", () => {
   test("lock timeout conta um conflito de lock e continua sendo falha transitória", async () => {
     const wallet = await open();
-    const impatient = new MikroOrmUnitOfWork(context.orm, 100, metrics);
+    const impatient = new PostgresUnitOfWork(context.orm, 100, metrics);
     let release!: () => void;
     const hold = new Promise<void>((done) => (release = done));
     let signal!: () => void;
@@ -244,7 +244,7 @@ describe("instrumentação do lock", () => {
   });
 
   test("erro que não é de lock não conta conflito", async () => {
-    const counting = new MikroOrmUnitOfWork(context.orm, 100, metrics);
+    const counting = new PostgresUnitOfWork(context.orm, 100, metrics);
     await expect(
       counting.run(async () => {
         throw new Error("bug");

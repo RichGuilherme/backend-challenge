@@ -4,7 +4,7 @@ import { migrations } from "../../../migrations";
 import { persistenceRecords } from "./records";
 import type { DatabaseConfig } from "../../shared/config/env";
 
-export function createMikroOrmOptions(database: DatabaseConfig): Options {
+export function createOrmOptions(database: DatabaseConfig): Options {
   return defineConfig({
     host: database.host,
     port: database.port,

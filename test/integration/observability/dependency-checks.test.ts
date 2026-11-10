@@ -6,7 +6,7 @@ import { ReadinessProbe } from "../../../src/application/observability/readiness
 import { PostgresCheck } from "../../../src/infrastructure/observability/postgres-check";
 import { SnsTopicCheck } from "../../../src/infrastructure/observability/sns-topic-check";
 import { SqsQueueCheck } from "../../../src/infrastructure/observability/sqs-queue-check";
-import { createMikroOrmOptions } from "../../../src/infrastructure/persistence/mikro-orm.config";
+import { createOrmOptions } from "../../../src/infrastructure/persistence/orm.config";
 import { loadAwsConfig, loadOutboxConfig, requireEnv } from "../../../src/shared/config/env";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
@@ -33,7 +33,7 @@ const noSignal = new AbortController().signal;
 
 beforeAll(async () => {
   context = await createTestContext();
-  unreachableOrm = await MikroORM.init(createMikroOrmOptions({ ...testDatabaseConfig(), host: "127.0.0.1", port: 1 }));
+  unreachableOrm = await MikroORM.init(createOrmOptions({ ...testDatabaseConfig(), host: "127.0.0.1", port: 1 }));
 });
 
 afterAll(async () => {

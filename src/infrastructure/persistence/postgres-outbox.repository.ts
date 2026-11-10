@@ -4,7 +4,7 @@ import { OutboxMessage } from "../../application/messaging/outbox-message";
 import type { OutboxRepository } from "../../application/ports/outbox.repository";
 import { OutboxMessageRecord, type OutboxMessageRow } from "./records";
 
-export class MikroOrmOutboxRepository implements OutboxRepository {
+export class PostgresOutboxRepository implements OutboxRepository {
   constructor(private readonly em: EntityManager) {}
 
   async add(messages: readonly OutboxMessage[]): Promise<void> {

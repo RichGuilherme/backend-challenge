@@ -4,7 +4,7 @@ import type { InboxMessage } from "../../application/messaging/inbox-message";
 import { DuplicateInboxMessageError, type InboxRepository } from "../../application/ports/inbox.repository";
 import { InboxMessageRecord } from "./records";
 
-export class MikroOrmInboxRepository implements InboxRepository {
+export class PostgresInboxRepository implements InboxRepository {
   constructor(private readonly em: EntityManager) {}
 
   async isProcessed(consumerName: string, messageId: string): Promise<boolean> {

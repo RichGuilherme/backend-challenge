@@ -1,13 +1,13 @@
 import type { SQL } from "bun";
 import type { MikroORM } from "@mikro-orm/postgresql";
-import { MikroOrmUnitOfWork } from "../../src/infrastructure/persistence/mikro-orm-unit-of-work";
+import { PostgresUnitOfWork } from "../../src/infrastructure/persistence/postgres-unit-of-work";
 import { SystemClock } from "../../src/infrastructure/system/system-clock";
 import { UuidV7IdGenerator } from "../../src/infrastructure/system/uuid-v7-id-generator";
 import { connectTestDatabase, initTestOrm, recreateTestDatabase } from "./database";
 
 export interface TestContext {
   orm: MikroORM;
-  unitOfWork: MikroOrmUnitOfWork;
+  unitOfWork: PostgresUnitOfWork;
   ids: UuidV7IdGenerator;
   clock: SystemClock;
   sql: SQL;
@@ -21,7 +21,7 @@ export async function createTestContext(options: { lockTimeoutMs?: number } = {}
   const sql = connectTestDatabase();
   return {
     orm,
-    unitOfWork: new MikroOrmUnitOfWork(orm, options.lockTimeoutMs ?? 5_000),
+    unitOfWork: new PostgresUnitOfWork(orm, options.lockTimeoutMs ?? 5_000),
     ids: new UuidV7IdGenerator(),
     clock: new SystemClock(),
     sql,

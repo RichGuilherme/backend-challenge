@@ -1,6 +1,6 @@
 import { SQL } from "bun";
 import { MikroORM } from "@mikro-orm/postgresql";
-import { createMikroOrmOptions } from "../../src/infrastructure/persistence/mikro-orm.config";
+import { createOrmOptions } from "../../src/infrastructure/persistence/orm.config";
 import { loadDatabaseConfig, type DatabaseConfig } from "../../src/shared/config/env";
 
 const TEST_SUFFIX = "_test";
@@ -37,5 +37,5 @@ export function connectTestDatabase(): SQL {
 }
 
 export function initTestOrm(): Promise<MikroORM> {
-  return MikroORM.init(createMikroOrmOptions(testDatabaseConfig()));
+  return MikroORM.init(createOrmOptions(testDatabaseConfig()));
 }

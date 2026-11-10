@@ -7,7 +7,7 @@ import { DuplicateWalletError, WalletVersionConflictError } from "../../domain/w
 import { toLedgerEntryRow, toWallet, toWalletRow } from "./mappers";
 import { WalletLedgerEntryRecord, WalletRecord } from "./records";
 
-export class MikroOrmWalletRepository implements WalletRepository {
+export class PostgresWalletRepository implements WalletRepository {
   constructor(private readonly em: EntityManager) {}
 
   async findById(id: string): Promise<Wallet | undefined> {

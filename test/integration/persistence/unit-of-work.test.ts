@@ -7,7 +7,7 @@ import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transac
 import type { WagerTransactionRepository } from "../../../src/domain/wagering/wager-transaction.repository";
 import { Wallet } from "../../../src/domain/wallet/wallet";
 import { WalletVersionConflictError } from "../../../src/domain/wallet/wallet.errors";
-import { MikroOrmUnitOfWork } from "../../../src/infrastructure/persistence/mikro-orm-unit-of-work";
+import { PostgresUnitOfWork } from "../../../src/infrastructure/persistence/postgres-unit-of-work";
 import { createTestContext, type TestContext } from "../../support/application";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { brl } from "../../support/money";
@@ -73,7 +73,7 @@ async function insertBet(transactions: WagerTransactionRepository, wallet: Walle
   return bet.id;
 }
 
-describe("MikroOrmUnitOfWork e repositórios", () => {
+describe("PostgresUnitOfWork e repositórios", () => {
   test("grava e relê a wallet com valor exato, além da precisão de float", async () => {
     const view = await openWith("123456789012345678.99");
 
@@ -108,7 +108,7 @@ describe("MikroOrmUnitOfWork e repositórios", () => {
   test("lock da wallet: a segunda transação espera e, estourado o lock_timeout, vira falha transitória", async () => {
     const view = await openWith("10.00");
     const lock = await holdWalletLock(view.id);
-    const shortTimeout = new MikroOrmUnitOfWork(context.orm, 200);
+    const shortTimeout = new PostgresUnitOfWork(context.orm, 200);
 
     const startedAt = performance.now();
     await expect(shortTimeout.run(({ wallets }) => wallets.lockById(view.id))).rejects.toBeInstanceOf(
@@ -123,7 +123,7 @@ describe("MikroOrmUnitOfWork e repositórios", () => {
     const locked = await openWith("10.00");
     const free = await openWith("10.00");
     const lock = await holdWalletLock(locked.id);
-    const shortTimeout = new MikroOrmUnitOfWork(context.orm, 200);
+    const shortTimeout = new PostgresUnitOfWork(context.orm, 200);
 
     const other = await shortTimeout.run(({ wallets }) => wallets.lockById(free.id));
 

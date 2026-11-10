@@ -4,7 +4,7 @@ import type { PendingReferenceRepository } from "../../application/ports/pending
 import { PendingReference } from "../../application/wagering/pending-reference";
 import { PendingReferenceRecord, type PendingReferenceRow } from "./records";
 
-export class MikroOrmPendingReferenceRepository implements PendingReferenceRepository {
+export class PostgresPendingReferenceRepository implements PendingReferenceRepository {
   constructor(private readonly em: EntityManager) {}
 
   async add(pending: PendingReference): Promise<void> {

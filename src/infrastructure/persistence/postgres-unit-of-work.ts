@@ -3,15 +3,15 @@ import type { MikroORM } from "@mikro-orm/postgresql";
 import type { TransactionScope, UnitOfWork } from "../../application/ports/unit-of-work";
 import { NO_METRICS, type Metrics } from "../../application/ports/metrics";
 import { TransientFailureError } from "../../application/shared/application-error";
-import { MikroOrmInboxRepository } from "./mikro-orm-inbox.repository";
-import { MikroOrmOutboxRepository } from "./mikro-orm-outbox.repository";
-import { MikroOrmPendingReferenceRepository } from "./mikro-orm-pending-reference.repository";
-import { MikroOrmWagerTransactionRepository } from "./mikro-orm-wager-transaction.repository";
-import { MikroOrmWalletRepository } from "./mikro-orm-wallet.repository";
+import { PostgresInboxRepository } from "./postgres-inbox.repository";
+import { PostgresOutboxRepository } from "./postgres-outbox.repository";
+import { PostgresPendingReferenceRepository } from "./postgres-pending-reference.repository";
+import { PostgresWagerTransactionRepository } from "./postgres-wager-transaction.repository";
+import { PostgresWalletRepository } from "./postgres-wallet.repository";
 
 const LOCK_NOT_AVAILABLE = "55P03";
 
-export class MikroOrmUnitOfWork implements UnitOfWork {
+export class PostgresUnitOfWork implements UnitOfWork {
   constructor(
     private readonly orm: MikroORM,
     private readonly lockTimeoutMs: number,
@@ -27,11 +27,11 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
       return await this.orm.em.fork().transactional(async (em) => {
         await em.execute(`set local lock_timeout = '${this.lockTimeoutMs}ms'`);
         return work({
-          wallets: new MikroOrmWalletRepository(em),
-          transactions: new MikroOrmWagerTransactionRepository(em),
-          outbox: new MikroOrmOutboxRepository(em),
-          pendingReferences: new MikroOrmPendingReferenceRepository(em),
-          inbox: new MikroOrmInboxRepository(em),
+          wallets: new PostgresWalletRepository(em),
+          transactions: new PostgresWagerTransactionRepository(em),
+          outbox: new PostgresOutboxRepository(em),
+          pendingReferences: new PostgresPendingReferenceRepository(em),
+          inbox: new PostgresInboxRepository(em),
         });
       });
     } catch (error) {
