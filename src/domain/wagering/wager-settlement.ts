@@ -3,6 +3,7 @@ import type { Wallet, WalletMovement } from "../wallet/wallet";
 import type { WalletLedgerEntry } from "../wallet/wallet-ledger-entry";
 import { InsufficientFundsError } from "../wallet/wallet.errors";
 import { FailureCode } from "./failure-code";
+import { ReversalPolicy } from "./reversal-policy";
 import type { WagerTransaction } from "./wager-transaction";
 import { WagerTransactionKind } from "./wager-transaction-kind";
 import { WagerTransactionStatus } from "./wager-transaction-status";
@@ -24,6 +25,8 @@ export type SettlementResult =
   | { status: WagerTransactionStatus.PendingReference };
 
 export class WagerSettlement {
+  constructor(private readonly reversalPolicy: ReversalPolicy = new ReversalPolicy()) {}
+
   settle(input: SettlementInput): SettlementResult {
     this.assertSettleable(input);
     const { transaction, wallet, reference } = input;
@@ -64,7 +67,7 @@ export class WagerSettlement {
 
   private findReversalViolation(input: SettlementInput, reference: WagerTransaction): FailureCode | undefined {
     try {
-      input.transaction.validateReversalOf(reference);
+      this.reversalPolicy.validate(input.transaction, reference);
     } catch (error) {
       if (error instanceof WagerRuleViolationError) return error.failureCode;
       throw error;

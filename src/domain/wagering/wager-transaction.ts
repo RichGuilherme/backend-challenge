@@ -1,17 +1,14 @@
 import type { Money } from "../shared/money/money";
 import { copyDate } from "../shared/copy-date";
 import { LedgerDirection } from "../wallet/ledger-direction";
-import { FailureCode } from "./failure-code";
+import type { FailureCode } from "./failure-code";
 import type { GameContext } from "./game-context";
 import type { ProviderReference } from "./provider-reference";
+import { REVERSIBLE_KINDS_BY_REVERSAL } from "./reversible-kinds";
 import { WagerTransactionKind } from "./wager-transaction-kind";
 import type { WagerTransactionOutcome } from "./wager-transaction-outcome";
 import { WagerTransactionStatus } from "./wager-transaction-status";
-import {
-  InvalidTransactionStateError,
-  InvalidWagerTransactionError,
-  WagerRuleViolationError,
-} from "./wager-transaction.errors";
+import { InvalidTransactionStateError, InvalidWagerTransactionError } from "./wager-transaction.errors";
 
 export interface CreateWagerTransactionProps {
   id: string;
@@ -78,14 +75,6 @@ const TERMINAL_STATUSES: ReadonlySet<WagerTransactionStatus> = new Set([
 const KINDS_WITHOUT_REFERENCE: ReadonlySet<WagerTransactionKind> = new Set([
   WagerTransactionKind.Bet,
   WagerTransactionKind.Loss,
-]);
-
-const REVERSIBLE_KINDS_BY_REVERSAL: ReadonlyMap<WagerTransactionKind, ReadonlySet<WagerTransactionKind>> = new Map([
-  [WagerTransactionKind.Refund, new Set([WagerTransactionKind.Bet])],
-  [
-    WagerTransactionKind.Rollback,
-    new Set([WagerTransactionKind.Bet, WagerTransactionKind.Win, WagerTransactionKind.Refund]),
-  ],
 ]);
 
 export class WagerTransaction {
@@ -251,14 +240,6 @@ export class WagerTransaction {
     }
   }
 
-  validateReversalOf(reference: WagerTransaction): void {
-    this.assertIsReversalTargeting(reference);
-    this.assertSameContextAs(reference);
-    this.assertCanReverseKind(reference);
-    this.assertReferenceProcessed(reference);
-    this.assertSameAmountAs(reference);
-  }
-
   private static assertSubmittable(props: CreateWagerTransactionProps): void {
     if (props.kind === WagerTransactionKind.Opening) {
       throw new InvalidWagerTransactionError("OPENING é interno e não pode ser submetido");
@@ -282,60 +263,6 @@ export class WagerTransaction {
       throw new InvalidWagerTransactionError("ROLLBACK exige a referência para definir a direção");
     }
     return reference.ledgerDirectionFor() === LedgerDirection.Debit ? LedgerDirection.Credit : LedgerDirection.Debit;
-  }
-
-  private assertIsReversalTargeting(reference: WagerTransaction): void {
-    if (!this.requiresReference()) {
-      throw new InvalidWagerTransactionError(`${this.kind} não reverte transações`);
-    }
-    if (reference.provider.externalTransactionId !== this.referenceExternalTransactionId) {
-      throw new InvalidWagerTransactionError(
-        `Referência ${reference.provider.externalTransactionId} não é a informada (${this.referenceExternalTransactionId})`,
-      );
-    }
-    if (!reference.isTerminal()) {
-      throw new InvalidWagerTransactionError(`Referência ${reference.id} ainda não está em estado terminal`);
-    }
-  }
-
-  private assertSameContextAs(reference: WagerTransaction): void {
-    const sameContext =
-      reference.provider.providerId === this.provider.providerId &&
-      reference.playerId === this.playerId &&
-      reference.walletId === this.walletId &&
-      reference.game.roundId === this.game.roundId &&
-      reference.money.currency === this.money.currency;
-
-    if (!sameContext) {
-      throw new WagerRuleViolationError(
-        FailureCode.ReferenceMismatch,
-        `Referência ${reference.id} é de outro provider, player, wallet, moeda ou rodada`,
-      );
-    }
-  }
-
-  private assertCanReverseKind(reference: WagerTransaction): void {
-    if (!REVERSIBLE_KINDS_BY_REVERSAL.get(this.kind)?.has(reference.kind)) {
-      throw new WagerRuleViolationError(FailureCode.InvalidReferenceKind, `${this.kind} não reverte ${reference.kind}`);
-    }
-  }
-
-  private assertReferenceProcessed(reference: WagerTransaction): void {
-    if (reference.status !== WagerTransactionStatus.Processed) {
-      throw new WagerRuleViolationError(
-        FailureCode.ReferenceNotProcessed,
-        `Referência ${reference.id} está ${reference.status}`,
-      );
-    }
-  }
-
-  private assertSameAmountAs(reference: WagerTransaction): void {
-    if (!reference.money.equals(this.money)) {
-      throw new WagerRuleViolationError(
-        FailureCode.ReversalAmountMismatch,
-        `Valor ${this.money} difere da referência ${reference.money}`,
-      );
-    }
   }
 
   private assertNotTerminal(action: string): void {

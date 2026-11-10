@@ -13,9 +13,8 @@ import {
 import {
   InvalidTransactionStateError,
   InvalidWagerTransactionError,
-  WagerRuleViolationError,
 } from "../../../../src/domain/wagering/wager-transaction.errors";
-import { brl, usd } from "../../../support/money";
+import { brl } from "../../../support/money";
 import { captureError } from "../../../support/errors";
 
 const createdAt = new Date("2026-11-09T12:00:00.000Z");
@@ -68,14 +67,6 @@ const reversal = (
       ...overrides,
     }),
   );
-
-
-function expectViolation(fn: () => unknown, code: FailureCode): void {
-  const error = captureError(fn);
-  expect(error).toBeInstanceOf(WagerRuleViolationError);
-  expect(error).toBeInstanceOf(BusinessRuleError);
-  expect((error as WagerRuleViolationError).failureCode).toBe(code);
-}
 
 describe("WagerTransaction", () => {
   describe("create", () => {
@@ -329,94 +320,6 @@ describe("WagerTransaction", () => {
 
     test("ROLLBACK sem referência não tem direção", () => {
       expect(() => reversal(WagerTransactionKind.Rollback).ledgerDirectionFor()).toThrow(InvalidWagerTransactionError);
-    });
-  });
-
-  describe("validateReversalOf", () => {
-    test("REFUND de BET processada da mesma rodada e valor é válido", () => {
-      expect(() => reversal(WagerTransactionKind.Refund).validateReversalOf(processed())).not.toThrow();
-    });
-
-    test.each([WagerTransactionKind.Bet, WagerTransactionKind.Win, WagerTransactionKind.Refund])(
-      "ROLLBACK de %s processado é válido",
-      (kind) => {
-        const reference = processed({ kind, ...referenceFor(kind) });
-        expect(() => reversal(WagerTransactionKind.Rollback).validateReversalOf(reference)).not.toThrow();
-      },
-    );
-
-    test.each<[string, Partial<CreateWagerTransactionProps>]>([
-      ["provider", { provider: { providerId: "provider-b", externalTransactionId: "ext-1" } }],
-      ["player", { playerId: "player-2" }],
-      ["wallet", { walletId: "wallet-2" }],
-      ["rodada", { game: { roundId: "round-2", gameId: "game-1" } }],
-      ["moeda", { money: usd("25.00") }],
-    ])("referência de outro(a) %s → REFERENCE_MISMATCH", (_label, overrides) => {
-      expectViolation(
-        () => reversal(WagerTransactionKind.Refund).validateReversalOf(processed(overrides)),
-        FailureCode.ReferenceMismatch,
-      );
-    });
-
-    test.each([WagerTransactionKind.Win, WagerTransactionKind.Loss, WagerTransactionKind.Refund])(
-      "REFUND de %s → INVALID_REFERENCE_KIND",
-      (kind) => {
-        const reference = processed({ kind, ...referenceFor(kind) });
-        expectViolation(
-          () => reversal(WagerTransactionKind.Refund).validateReversalOf(reference),
-          FailureCode.InvalidReferenceKind,
-        );
-      },
-    );
-
-    test.each([WagerTransactionKind.Loss, WagerTransactionKind.Rollback])(
-      "ROLLBACK de %s → INVALID_REFERENCE_KIND",
-      (kind) => {
-        const reference = processed({ kind, ...referenceFor(kind) });
-        expectViolation(
-          () => reversal(WagerTransactionKind.Rollback).validateReversalOf(reference),
-          FailureCode.InvalidReferenceKind,
-        );
-      },
-    );
-
-    test.each([
-      [
-        "REJECTED",
-        (tx: WagerTransaction) => tx.reject({ code: FailureCode.InsufficientFunds, at, observedBalance: brl("1.00") }),
-      ],
-      ["FAILED", (tx: WagerTransaction) => tx.fail({ code: FailureCode.InsufficientFunds, at })],
-    ])("referência %s → REFERENCE_NOT_PROCESSED", (_label, finish) => {
-      const reference = bet();
-      finish(reference);
-      expectViolation(
-        () => reversal(WagerTransactionKind.Refund).validateReversalOf(reference),
-        FailureCode.ReferenceNotProcessed,
-      );
-    });
-
-    test("valor diferente da referência → REVERSAL_AMOUNT_MISMATCH", () => {
-      expectViolation(
-        () => reversal(WagerTransactionKind.Refund, { money: brl("10.00") }).validateReversalOf(processed()),
-        FailureCode.ReversalAmountMismatch,
-      );
-    });
-
-    test("referência ainda não terminal é erro de programação: o chamador deve esperar", () => {
-      const error = captureError(() => reversal(WagerTransactionKind.Refund).validateReversalOf(bet()));
-      expect(error).toBeInstanceOf(InvalidWagerTransactionError);
-      expect(error).not.toBeInstanceOf(BusinessRuleError);
-    });
-
-    test("referência com outro externalTransactionId é erro de programação", () => {
-      const refund = reversal(WagerTransactionKind.Refund, { referenceExternalTransactionId: "ext-9" });
-      expect(() => refund.validateReversalOf(processed())).toThrow(InvalidWagerTransactionError);
-    });
-
-    test("só REFUND e ROLLBACK revertem", () => {
-      expect(() => bet({ kind: WagerTransactionKind.Win }).validateReversalOf(processed())).toThrow(
-        InvalidWagerTransactionError,
-      );
     });
   });
 
