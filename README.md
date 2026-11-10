@@ -1,3 +1,101 @@
+# Distributed Wagering Processor
+
+Serviço financeiro que processa transações de apostas de provedores de jogos, recebidas por HTTP e por SQS. Fica correto com mensagens duplicadas, fora de ordem e várias instâncias ao mesmo tempo: idempotência persistente, saldo protegido por lock por wallet, ledger imutável e eventos publicados por transactional outbox.
+
+**Stack:** Bun, TypeScript estrito, NestJS, PostgreSQL, MikroORM v7, AWS SQS/SNS (LocalStack), Keycloak, Docker Compose.
+
+## Executar o projeto
+
+Requisitos: Docker com Compose. O Bun 1.4+ só é necessário para rodar os testes.
+
+```bash
+cp .env.example .env
+docker compose up -d --build --wait
+```
+
+Na primeira vez leva cerca de um minuto. Ao terminar, tudo está de pé:
+
+| Serviço | Onde |
+|---|---|
+| API | http://localhost:3000 |
+| Keycloak (emite os tokens) | http://localhost:8081 (admin / admin) |
+| PostgreSQL | `localhost:5432`, usuário, senha e banco `wagering` |
+| LocalStack (SQS e SNS) | http://localhost:4566 |
+
+Além da API, sobem três processos da mesma imagem: `consumer` (fila SQS), `outbox-publisher` (publica os eventos) e `reference-worker` (reprocessa transações que chegaram antes da referência).
+
+Para parar e apagar os dados: `docker compose down -v`.
+
+## Testar manualmente
+
+**Postman, Insomnia ou Bruno.** Importe `docs/postman/wagering.postman_collection.json` e `docs/postman/local.postman_environment.json`, e rode a collection inteira no Collection Runner. Ela cobre os cenários deste enunciado, busca o token sozinha e confere o resultado de cada request.
+
+**Pelo terminal.** A API exige um token do Keycloak. Há dois provedores de teste, `provider-a` e `provider-b`, com o segredo `<provedor>-dev-secret`.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8081/realms/wagering/protocol/openid-connect/token \
+  -d grant_type=client_credentials -d client_id=provider-a -d client_secret=provider-a-dev-secret \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+
+curl -s -X POST http://localhost:3000/wallets \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"playerId":"0192f28f-5dc0-7d58-bdb2-814ad6a0f4a1","initialBalance":{"amount":"1000.00","currency":"BRL"}}'
+```
+
+Para dispensar o token, suba com `AUTH_ENABLED=false docker compose up -d --build --wait`.
+
+**Observar o sistema:**
+
+```bash
+curl localhost:3000/health/ready                                   # PostgreSQL e SQS
+curl localhost:3000/metrics                                        # métricas Prometheus
+docker compose logs -f app consumer outbox-publisher reference-worker   # logs JSON com correlationId
+docker compose exec postgres psql -U wagering -d wagering          # ou DBeaver em localhost:5432
+```
+
+Tabelas principais: `wallets`, `wallet_ledger_entries`, `wager_transactions`, `inbox_messages`, `outbox_messages` e `pending_references`.
+
+## Testes
+
+Os testes de integração e de concorrência usam PostgreSQL e LocalStack reais, sem mocks. Derrube o Compose antes: o `consumer` dele disputaria as mesmas filas com os testes.
+
+```bash
+bun install
+docker compose down -v
+bun run infra:up        # só PostgreSQL e LocalStack
+bun run db:migrate
+
+bun run test:unit           # regras de domínio e casos de uso, cerca de 1s
+bun run test:integration    # banco e filas reais
+bun run test:concurrency    # paralelismo real e vários processos
+bun test                    # tudo, cerca de 2,5 min
+```
+
+Todo teste termina conferindo que o saldo da wallet é igual ao saldo reconstruído pelo ledger.
+
+## Outros comandos
+
+| Comando | O que faz |
+|---|---|
+| `bun run typecheck` | checagem de tipos |
+| `bun run format:check` | verifica o Prettier (`bun run format` corrige) |
+| `bun run db:migrate` / `db:rollback` | sobe e desce as migrations |
+| `bun run infra:up` / `infra:down` | sobe ou derruba PostgreSQL e LocalStack |
+
+## Estrutura
+
+```text
+src/domain/          regras de negócio, sem framework nem ORM
+src/application/     casos de uso, portas, inbox e outbox
+src/infrastructure/  PostgreSQL, SQS/SNS, logs, métricas, autenticação
+src/presentation/    HTTP, consumidor SQS, workers, health
+src/main/            composição: um entrypoint com um papel por processo
+migrations/          versionadas, com up e down
+test/                unit, integration, concurrency
+```
+
+---
+
 # Technical Challenge — Distributed Wagering Processor
 
 ## Bem-vindo à Jungle Gaming 🦧
