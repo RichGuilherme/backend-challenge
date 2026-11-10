@@ -87,12 +87,50 @@ services:
       <<: *app-environment
       SERVICE_NAME: migrate
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8081}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./docker/keycloak/wagering-realm.json:/opt/keycloak/data/import/wagering-realm.json:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q UP <&3",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
   app:
     <<: *app-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
     environment:
       <<: *app-environment
       SERVICE_NAME: api
       PORT: 3000
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_ISSUER: http://localhost:${KEYCLOAK_PORT:-8081}/realms/wagering
+      AUTH_JWKS_URI: http://keycloak:8080/realms/wagering/protocol/openid-connect/certs
+      AUTH_AUDIENCE: wagering-api
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:3000/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 2s
