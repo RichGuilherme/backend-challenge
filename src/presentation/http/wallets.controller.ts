@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Inject, Param, Post } from "@nestjs/common";
 import { GetWalletUseCase } from "../../application/wallet/get-wallet.use-case";
 import { OpenWalletUseCase } from "../../application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../application/wallet/wallet.view";
+import { CORRELATION_ID_HEADER, resolveCorrelationId } from "./correlation-id";
 import { createWalletSchema, uuidSchema, type CreateWalletBody } from "./schemas";
 import { ZodValidationPipe } from "./zod-validation.pipe";
 
@@ -14,8 +15,11 @@ export class WalletsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body(new ZodValidationPipe(createWalletSchema)) body: CreateWalletBody): Promise<WalletView> {
-    return this.openWallet.execute(body);
+  create(
+    @Body(new ZodValidationPipe(createWalletSchema)) body: CreateWalletBody,
+    @Headers(CORRELATION_ID_HEADER) correlationHeader: string | undefined,
+  ): Promise<WalletView> {
+    return this.openWallet.execute({ ...body, correlationId: resolveCorrelationId(correlationHeader) });
   }
 
   @Get(":walletId")

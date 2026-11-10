@@ -1,3 +1,5 @@
+type Env = NodeJS.ProcessEnv;
+
 export interface DatabaseConfig {
   host: string;
   port: number;
@@ -6,7 +8,19 @@ export interface DatabaseConfig {
   password: string;
 }
 
-export function requireEnv(name: string, env: NodeJS.ProcessEnv = process.env): string {
+export interface AwsConfig {
+  region: string;
+  endpoint: string | undefined;
+}
+
+export interface OutboxConfig {
+  topicArn: string;
+  batchSize: number;
+  pollIntervalMs: number;
+  retry: { baseMs: number; capMs: number };
+}
+
+export function requireEnv(name: string, env: Env = process.env): string {
   const value = env[name];
   if (value === undefined || value === "") {
     throw new Error(`Variável de ambiente ausente: ${name}`);
@@ -14,21 +28,41 @@ export function requireEnv(name: string, env: NodeJS.ProcessEnv = process.env): 
   return value;
 }
 
-export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): DatabaseConfig {
+export function requirePositiveInteger(name: string, env: Env = process.env): number {
+  const raw = requireEnv(name, env);
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0 || String(value) !== raw) {
+    throw new Error(`${name} deve ser inteiro positivo: ${raw}`);
+  }
+  return value;
+}
+
+export function loadDatabaseConfig(env: Env = process.env): DatabaseConfig {
   return {
     host: requireEnv("DB_HOST", env),
-    port: Number.parseInt(requireEnv("DB_PORT", env), 10),
+    port: requirePositiveInteger("DB_PORT", env),
     name: requireEnv("DB_NAME", env),
     user: requireEnv("DB_USER", env),
     password: requireEnv("DB_PASSWORD", env),
   };
 }
 
-export function loadLockTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = requireEnv("DB_LOCK_TIMEOUT_MS", env);
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value) || value <= 0 || String(value) !== raw) {
-    throw new Error(`DB_LOCK_TIMEOUT_MS inválido: ${raw}`);
-  }
-  return value;
+export function loadLockTimeoutMs(env: Env = process.env): number {
+  return requirePositiveInteger("DB_LOCK_TIMEOUT_MS", env);
+}
+
+export function loadAwsConfig(env: Env = process.env): AwsConfig {
+  return { region: requireEnv("AWS_REGION", env), endpoint: env.AWS_ENDPOINT_URL || undefined };
+}
+
+export function loadOutboxConfig(env: Env = process.env): OutboxConfig {
+  return {
+    topicArn: requireEnv("SNS_EVENTS_TOPIC_ARN", env),
+    batchSize: requirePositiveInteger("OUTBOX_BATCH_SIZE", env),
+    pollIntervalMs: requirePositiveInteger("OUTBOX_POLL_INTERVAL_MS", env),
+    retry: {
+      baseMs: requirePositiveInteger("OUTBOX_RETRY_BASE_MS", env),
+      capMs: requirePositiveInteger("OUTBOX_RETRY_CAP_MS", env),
+    },
+  };
 }

@@ -23,7 +23,7 @@ describe("OpenWalletUseCase", () => {
   test("saldo inicial positivo: wallet versão 1, transação OPENING e um CREDIT, gravados juntos", async () => {
     const playerId = newPlayer();
 
-    const view = await openWallet.execute({ playerId, initialBalance: { amount: "1000.00", currency: "BRL" } });
+    const view = await openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "1000.00", currency: "BRL" } });
 
     expect(view).toEqual({ id: view.id, playerId, balance: { amount: "1000.00", currency: "BRL" }, version: 1 });
     const [opening] = await context.sql`
@@ -47,7 +47,7 @@ describe("OpenWalletUseCase", () => {
   });
 
   test("saldo inicial zero: wallet versão 1 sem transação e sem lançamento", async () => {
-    const view = await openWallet.execute({ playerId: newPlayer(), initialBalance: { amount: "0", currency: "BRL" } });
+    const view = await openWallet.execute({ playerId: newPlayer(), correlationId: "test-correlation", initialBalance: { amount: "0", currency: "BRL" } });
 
     expect(view.balance).toEqual({ amount: "0.00", currency: "BRL" });
     const [counts] = await context.sql`
@@ -60,10 +60,10 @@ describe("OpenWalletUseCase", () => {
 
   test("wallet duplicada para o mesmo player e moeda é conflito", async () => {
     const playerId = newPlayer();
-    await openWallet.execute({ playerId, initialBalance: { amount: "10.00", currency: "BRL" } });
+    await openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "10.00", currency: "BRL" } });
 
     await expect(
-      openWallet.execute({ playerId, initialBalance: { amount: "20.00", currency: "BRL" } }),
+      openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "20.00", currency: "BRL" } }),
     ).rejects.toBeInstanceOf(WalletAlreadyExistsError);
     const [row] = await context.sql`select count(*)::int as count from wallets where player_id = ${playerId}`;
     expect(row.count).toBe(1);
@@ -71,8 +71,8 @@ describe("OpenWalletUseCase", () => {
 
   test("o mesmo player pode ter wallet em outra moeda", async () => {
     const playerId = newPlayer();
-    await openWallet.execute({ playerId, initialBalance: { amount: "10.00", currency: "BRL" } });
-    const usd = await openWallet.execute({ playerId, initialBalance: { amount: "5.00", currency: "USD" } });
+    await openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "10.00", currency: "BRL" } });
+    const usd = await openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "5.00", currency: "USD" } });
     expect(usd.balance).toEqual({ amount: "5.00", currency: "USD" });
   });
 
@@ -81,7 +81,7 @@ describe("OpenWalletUseCase", () => {
 
     const results = await Promise.allSettled(
       Array.from({ length: 10 }, () =>
-        openWallet.execute({ playerId, initialBalance: { amount: "50.00", currency: "BRL" } }),
+        openWallet.execute({ playerId, correlationId: "test-correlation", initialBalance: { amount: "50.00", currency: "BRL" } }),
       ),
     );
 
@@ -100,7 +100,7 @@ describe("OpenWalletUseCase", () => {
 
 describe("GetWalletUseCase", () => {
   test("devolve a wallet", async () => {
-    const opened = await openWallet.execute({ playerId: newPlayer(), initialBalance: { amount: "7.50", currency: "BRL" } });
+    const opened = await openWallet.execute({ playerId: newPlayer(), correlationId: "test-correlation", initialBalance: { amount: "7.50", currency: "BRL" } });
     expect(await getWallet.execute(opened.id)).toEqual(opened);
   });
 

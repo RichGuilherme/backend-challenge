@@ -58,8 +58,25 @@ export const WalletLedgerEntryRecord = defineEntity({
   },
 });
 
+export const OutboxMessageRecord = defineEntity({
+  name: "OutboxMessageRecord",
+  tableName: "outbox_messages",
+  properties: {
+    id: p.uuid().primary(),
+    aggregateId: p.string(),
+    partitionKey: p.string(),
+    eventType: p.string(),
+    payload: p.json<Record<string, unknown>>(),
+    occurredAt: p.datetime(),
+    attempts: p.integer(),
+    nextAttemptAt: p.datetime(),
+    publishedAt: p.datetime().nullable(),
+  },
+});
+
 export type WalletRow = InferEntity<typeof WalletRecord>;
 export type WagerTransactionRow = InferEntity<typeof WagerTransactionRecord>;
 export type WalletLedgerEntryRow = InferEntity<typeof WalletLedgerEntryRecord>;
+export type OutboxMessageRow = InferEntity<typeof OutboxMessageRecord>;
 
-export const persistenceRecords = [WalletRecord, WagerTransactionRecord, WalletLedgerEntryRecord];
+export const persistenceRecords = [WalletRecord, WagerTransactionRecord, WalletLedgerEntryRecord, OutboxMessageRecord];

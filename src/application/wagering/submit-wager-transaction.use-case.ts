@@ -5,6 +5,9 @@ import type { WagerTransactionKind } from "../../domain/wagering/wager-transacti
 import { WagerTransactionStatus } from "../../domain/wagering/wager-transaction-status";
 import { DuplicateWagerTransactionError } from "../../domain/wagering/wager-transaction.errors";
 import type { Wallet } from "../../domain/wallet/wallet";
+import { eventContextFactory, type EventTrace } from "../messaging/event-trace";
+import { OutboxMessage } from "../messaging/outbox-message";
+import { eventsForSettlement } from "../messaging/settlement-events";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
 import type { TransactionScope, UnitOfWork } from "../ports/unit-of-work";
@@ -13,7 +16,7 @@ import { computePayloadHash, type WagerTransactionPayload } from "./payload-hash
 import { toSubmissionResult, type SubmissionResult } from "./wager-transaction.view";
 import { IdempotencyConflictError } from "./wagering.errors";
 
-export interface SubmitWagerTransactionCommand extends WagerTransactionPayload {
+export interface SubmitWagerTransactionCommand extends WagerTransactionPayload, EventTrace {
   idempotencyKey: string;
   kind: WagerTransactionKind;
 }
@@ -48,19 +51,21 @@ export class SubmitWagerTransactionUseCase {
 
     const transaction = this.createTransaction(command, payloadHash);
     const reference = await this.resolveReference(scope, transaction);
+    const at = this.clock.now();
     const result = this.settlement.settle({
       transaction,
       wallet,
       reference,
       referenceAlreadyReversed: reference ? await scope.transactions.hasProcessedReversalOf(reference.id) : false,
       entryId: this.ids.next(),
-      at: this.clock.now(),
+      at,
     });
+    const ledgerEntry = result.status === WagerTransactionStatus.Processed ? result.ledgerEntry : undefined;
 
     await scope.transactions.insert(transaction);
-    if (result.status === WagerTransactionStatus.Processed && result.ledgerEntry) {
-      await scope.wallets.update(wallet, result.ledgerEntry);
-    }
+    if (ledgerEntry) await scope.wallets.update(wallet, ledgerEntry);
+    const events = eventsForSettlement(transaction, wallet, ledgerEntry, eventContextFactory(command, this.ids, at));
+    await scope.outbox.add(events.map((event) => OutboxMessage.enqueue(event)));
     return toSubmissionResult(transaction, wallet, false);
   }
 

@@ -31,7 +31,7 @@ beforeAll(async () => {
 afterAll(() => context?.close());
 
 const open = (amount = "100.00"): Promise<WalletView> =>
-  openWallet.execute({ playerId: `player-${crypto.randomUUID()}`, initialBalance: { amount, currency: "BRL" } });
+  openWallet.execute({ playerId: `player-${crypto.randomUUID()}`, correlationId: "test-correlation", initialBalance: { amount, currency: "BRL" } });
 
 const command = (wallet: WalletView, overrides: Partial<SubmitWagerTransactionCommand> = {}) =>
   submitCommand(wallet.id, wallet.playerId, overrides);

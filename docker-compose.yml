@@ -1,5 +1,32 @@
 name: wagering
 
+x-app-environment: &app-environment
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${DB_NAME:-wagering}
+  DB_USER: ${DB_USER:-wagering}
+  DB_PASSWORD: ${DB_PASSWORD:-wagering}
+  DB_LOCK_TIMEOUT_MS: ${DB_LOCK_TIMEOUT_MS:-5000}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  SNS_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:wager-events.fifo
+  OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+  OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-500}
+  OUTBOX_RETRY_BASE_MS: ${OUTBOX_RETRY_BASE_MS:-1000}
+  OUTBOX_RETRY_CAP_MS: ${OUTBOX_RETRY_CAP_MS:-300000}
+
+x-app-service: &app-service
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  depends_on:
+    postgres:
+      condition: service_healthy
+    localstack:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -20,41 +47,31 @@ services:
   localstack:
     image: localstack/localstack:4.14
     environment:
-      SERVICES: sqs
+      SERVICES: sqs,sns
       AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
     ports:
       - "4566:4566"
     volumes:
-      - ./docker/localstack/init-sqs.sh:/etc/localstack/init/ready.d/init-sqs.sh:ro
+      - ./docker/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wager-transactions.fifo >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wager-events-subscriber.fifo >/dev/null 2>&1"]
       interval: 2s
       timeout: 5s
       retries: 60
 
   app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    <<: *app-service
     environment:
+      <<: *app-environment
       PORT: 3000
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-wagering}
-      DB_USER: ${DB_USER:-wagering}
-      DB_PASSWORD: ${DB_PASSWORD:-wagering}
-      DB_LOCK_TIMEOUT_MS: ${DB_LOCK_TIMEOUT_MS:-5000}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
     ports:
       - "${APP_PORT:-3000}:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
+
+  outbox-publisher:
+    <<: *app-service
+    command: ["bun", "run", "src/main/outbox-publisher.ts"]
+    environment:
+      <<: *app-environment
 
 volumes:
   postgres-data:

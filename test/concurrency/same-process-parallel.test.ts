@@ -24,7 +24,7 @@ afterAll(async () => {
 });
 
 const open = (amount: string): Promise<WalletView> =>
-  openWallet.execute({ playerId: `player-${crypto.randomUUID()}`, initialBalance: { amount, currency: "BRL" } });
+  openWallet.execute({ playerId: `player-${crypto.randomUUID()}`, correlationId: "test-correlation", initialBalance: { amount, currency: "BRL" } });
 
 async function debitsOf(walletId: string): Promise<number> {
   const [row] = await context.sql`

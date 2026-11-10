@@ -3,6 +3,7 @@ import { GetWagerTransactionUseCase } from "../../application/wagering/get-wager
 import { SubmitWagerTransactionUseCase } from "../../application/wagering/submit-wager-transaction.use-case";
 import type { SubmissionResult, WagerTransactionView } from "../../application/wagering/wager-transaction.view";
 import { WagerTransactionStatus } from "../../domain/wagering/wager-transaction-status";
+import { CORRELATION_ID_HEADER, resolveCorrelationId } from "./correlation-id";
 import {
   idempotencyKeySchema,
   providerReferenceSchema,
@@ -34,11 +35,16 @@ export class WageringTransactionsController {
   @Post("wagering/transactions")
   async submit(
     @Headers("idempotency-key") rawIdempotencyKey: string | undefined,
+    @Headers(CORRELATION_ID_HEADER) correlationHeader: string | undefined,
     @Body(new ZodValidationPipe(submitWagerTransactionSchema)) body: SubmitWagerTransactionBody,
     @Res({ passthrough: true }) response: StatusResponse,
   ): Promise<SubmissionResult> {
     const idempotencyKey = idempotencyKeyPipe.transform(rawIdempotencyKey);
-    const result = await this.submitTransaction.execute({ ...body, idempotencyKey });
+    const result = await this.submitTransaction.execute({
+      ...body,
+      idempotencyKey,
+      correlationId: resolveCorrelationId(correlationHeader),
+    });
     const httpStatus = HTTP_STATUS_BY_RESULT[result.status];
     if (httpStatus === undefined) throw new Error(`Status de submissão sem mapeamento HTTP: ${result.status}`);
     response.status(httpStatus);

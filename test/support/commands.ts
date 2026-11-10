@@ -19,6 +19,7 @@ export function submitCommand(
     kind: WagerTransactionKind.Bet,
     money: { amount: "25.00", currency: "BRL" },
     referenceExternalTransactionId: undefined,
+    correlationId: "test-correlation",
     ...overrides,
   };
 }

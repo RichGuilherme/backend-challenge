@@ -25,7 +25,7 @@ afterAll(() => context?.close());
 const newPlayer = () => `player-${crypto.randomUUID()}`;
 
 const openWith = (amount: string): Promise<WalletView> =>
-  openWallet.execute({ playerId: newPlayer(), initialBalance: { amount, currency: "BRL" } });
+  openWallet.execute({ playerId: newPlayer(), correlationId: "test-correlation", initialBalance: { amount, currency: "BRL" } });
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
