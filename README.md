@@ -4,6 +4,8 @@ Serviço financeiro que processa transações de apostas de provedores de jogos,
 
 **Stack:** Bun, TypeScript estrito, NestJS, PostgreSQL, MikroORM v7, AWS SQS/SNS (LocalStack), Keycloak, Docker Compose.
 
+**Decisões, trade-offs e limitações:** [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Executar o projeto
 
 Requisitos: Docker com Compose. O Bun 1.4+ só é necessário para rodar os testes.
