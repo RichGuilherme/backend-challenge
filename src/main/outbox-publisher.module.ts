@@ -12,10 +12,11 @@ import type { EventPublisher } from "../application/ports/event-publisher";
 import type { UnitOfWork } from "../application/ports/unit-of-work";
 import { SnsEventPublisher } from "../infrastructure/messaging/sns-event-publisher";
 import { SystemClock } from "../infrastructure/system/system-clock";
-import { OutboxPublisherWorker } from "../presentation/workers/outbox-publisher.worker";
+import { PollingWorker } from "../presentation/workers/polling-worker";
 import { loadAwsConfig, loadOutboxConfig } from "../shared/config/env";
 import { PersistenceModule } from "./persistence.module";
-import { CLOCK, EVENT_PUBLISHER, UNIT_OF_WORK } from "./tokens";
+import { CLOCK, EVENT_PUBLISHER, OUTBOX_PUBLISHER_WORKER, UNIT_OF_WORK } from "./tokens";
+import { workerErrorLogger } from "./worker-error-logger";
 
 @Module({
   imports: [PersistenceModule],
@@ -40,23 +41,24 @@ import { CLOCK, EVENT_PUBLISHER, UNIT_OF_WORK } from "./tokens";
         new PublishOutboxBatchUseCase(unitOfWork, publisher, clock, loadOutboxConfig().retry),
     },
     {
-      provide: OutboxPublisherWorker,
+      provide: OUTBOX_PUBLISHER_WORKER,
       inject: [PublishOutboxBatchUseCase],
       useFactory: (publishBatch: PublishOutboxBatchUseCase) => {
         const { batchSize, pollIntervalMs } = loadOutboxConfig();
-        return new OutboxPublisherWorker(publishBatch, { batchSize, pollIntervalMs }, (error) =>
-          console.error(JSON.stringify({ level: "error", msg: "falha no lote da outbox", error: String(error) })),
+        return new PollingWorker(
+          async () => (await publishBatch.execute(batchSize)).claimed >= batchSize,
+          { pollIntervalMs },
+          workerErrorLogger("outbox-publisher"),
         );
       },
     },
   ],
-  exports: [OutboxPublisherWorker],
 })
 export class OutboxPublisherModule
   implements OnApplicationBootstrap, BeforeApplicationShutdown, OnApplicationShutdown
 {
   constructor(
-    @Inject(OutboxPublisherWorker) private readonly worker: OutboxPublisherWorker,
+    @Inject(OUTBOX_PUBLISHER_WORKER) private readonly worker: PollingWorker,
     @Inject(SNSClient) private readonly sns: SNSClient,
   ) {}
 

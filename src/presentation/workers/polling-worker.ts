@@ -1,18 +1,17 @@
-import type { PublishOutboxBatchUseCase } from "../../application/messaging/publish-outbox-batch.use-case";
+export type PollingTask = () => Promise<boolean>;
 
-export interface OutboxPublisherWorkerOptions {
-  batchSize: number;
+export interface PollingWorkerOptions {
   pollIntervalMs: number;
 }
 
-export class OutboxPublisherWorker {
+export class PollingWorker {
   private running = false;
   private loop: Promise<void> | undefined;
   private wakeUp: (() => void) | undefined;
 
   constructor(
-    private readonly publishBatch: PublishOutboxBatchUseCase,
-    private readonly options: OutboxPublisherWorkerOptions,
+    private readonly task: PollingTask,
+    private readonly options: PollingWorkerOptions,
     private readonly onError: (error: unknown) => void,
   ) {}
 
@@ -30,17 +29,17 @@ export class OutboxPublisherWorker {
 
   private async run(): Promise<void> {
     while (this.running) {
-      const claimed = await this.publishOnce();
-      if (claimed < this.options.batchSize) await this.idle();
+      const hasMoreWork = await this.runTask();
+      if (!hasMoreWork && this.running) await this.idle();
     }
   }
 
-  private async publishOnce(): Promise<number> {
+  private async runTask(): Promise<boolean> {
     try {
-      return (await this.publishBatch.execute(this.options.batchSize)).claimed;
+      return await this.task();
     } catch (error) {
       this.onError(error);
-      return 0;
+      return false;
     }
   }
 

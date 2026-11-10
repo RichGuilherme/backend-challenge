@@ -66,3 +66,21 @@ export function loadOutboxConfig(env: Env = process.env): OutboxConfig {
     },
   };
 }
+
+export interface PendingReferenceConfig {
+  pollIntervalMs: number;
+  policy: { ttlMs: number; backoff: { baseMs: number; capMs: number } };
+}
+
+export function loadPendingReferenceConfig(env: Env = process.env): PendingReferenceConfig {
+  return {
+    pollIntervalMs: requirePositiveInteger("PENDING_REFERENCE_POLL_INTERVAL_MS", env),
+    policy: {
+      ttlMs: requirePositiveInteger("PENDING_REFERENCE_TTL_MS", env),
+      backoff: {
+        baseMs: requirePositiveInteger("PENDING_REFERENCE_RETRY_BASE_MS", env),
+        capMs: requirePositiveInteger("PENDING_REFERENCE_RETRY_CAP_MS", env),
+      },
+    },
+  };
+}

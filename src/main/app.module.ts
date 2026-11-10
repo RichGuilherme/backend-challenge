@@ -12,6 +12,7 @@ import { UuidV7IdGenerator } from "../infrastructure/system/uuid-v7-id-generator
 import { HttpErrorFilter } from "../presentation/http/http-error.filter";
 import { WageringTransactionsController } from "../presentation/http/wagering-transactions.controller";
 import { WalletsController } from "../presentation/http/wallets.controller";
+import { loadPendingReferenceConfig } from "../shared/config/env";
 import { PersistenceModule } from "./persistence.module";
 import { CLOCK, ID_GENERATOR, UNIT_OF_WORK } from "./tokens";
 
@@ -37,7 +38,7 @@ import { CLOCK, ID_GENERATOR, UNIT_OF_WORK } from "./tokens";
       provide: SubmitWagerTransactionUseCase,
       inject: [UNIT_OF_WORK, ID_GENERATOR, CLOCK],
       useFactory: (unitOfWork: UnitOfWork, ids: IdGenerator, clock: Clock) =>
-        new SubmitWagerTransactionUseCase(unitOfWork, ids, clock),
+        new SubmitWagerTransactionUseCase(unitOfWork, ids, clock, loadPendingReferenceConfig().policy),
     },
     {
       provide: GetWagerTransactionUseCase,

@@ -47,6 +47,16 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     }
   }
 
+  async update(transaction: WagerTransaction): Promise<void> {
+    const { referenceTransactionId, status, failureCode, observedBalance, processedAt } =
+      toWagerTransactionRow(transaction);
+    await this.em.nativeUpdate(
+      WagerTransactionRecord,
+      { id: transaction.id },
+      { referenceTransactionId, status, failureCode, observedBalance, processedAt },
+    );
+  }
+
   private async findOne(where: Partial<WagerTransactionRow>): Promise<WagerTransaction | undefined> {
     const row = await this.em.findOne(WagerTransactionRecord, where);
     return row ? toWagerTransaction(row) : undefined;

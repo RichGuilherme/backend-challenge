@@ -6,12 +6,13 @@ import { WagerTransactionStatus } from "../../domain/wagering/wager-transaction-
 import { DuplicateWagerTransactionError } from "../../domain/wagering/wager-transaction.errors";
 import type { Wallet } from "../../domain/wallet/wallet";
 import { eventContextFactory, type EventTrace } from "../messaging/event-trace";
-import { OutboxMessage } from "../messaging/outbox-message";
-import { eventsForSettlement } from "../messaging/settlement-events";
+import type { RandomSource } from "../messaging/full-jitter";
+import { outboxMessagesForSettlement } from "../messaging/settlement-events";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
 import type { TransactionScope, UnitOfWork } from "../ports/unit-of-work";
 import { WalletNotFoundError, WalletPlayerMismatchError } from "../wallet/wallet.errors";
+import { DEFAULT_PENDING_REFERENCE_POLICY, PendingReference, type PendingReferencePolicy } from "./pending-reference";
 import { computePayloadHash, type WagerTransactionPayload } from "./payload-hash";
 import { toSubmissionResult, type SubmissionResult } from "./wager-transaction.view";
 import { IdempotencyConflictError } from "./wagering.errors";
@@ -28,6 +29,8 @@ export class SubmitWagerTransactionUseCase {
     private readonly unitOfWork: UnitOfWork,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly pendingReferencePolicy: PendingReferencePolicy = DEFAULT_PENDING_REFERENCE_POLICY,
+    private readonly random: RandomSource = Math.random,
   ) {}
 
   async execute(command: SubmitWagerTransactionCommand): Promise<SubmissionResult> {
@@ -64,8 +67,14 @@ export class SubmitWagerTransactionUseCase {
 
     await scope.transactions.insert(transaction);
     if (ledgerEntry) await scope.wallets.update(wallet, ledgerEntry);
-    const events = eventsForSettlement(transaction, wallet, ledgerEntry, eventContextFactory(command, this.ids, at));
-    await scope.outbox.add(events.map((event) => OutboxMessage.enqueue(event)));
+    if (result.status === WagerTransactionStatus.PendingReference) {
+      await scope.pendingReferences.add(
+        PendingReference.schedule(transaction.id, at, this.pendingReferencePolicy, this.random),
+      );
+    }
+    await scope.outbox.add(
+      outboxMessagesForSettlement(transaction, wallet, ledgerEntry, eventContextFactory(command, this.ids, at)),
+    );
     return toSubmissionResult(transaction, wallet, false);
   }
 

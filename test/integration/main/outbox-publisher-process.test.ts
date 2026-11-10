@@ -48,7 +48,7 @@ describe("processo outbox-publisher", () => {
 
     const exitCode = await child.exited;
     const stderr = await new Response(child.stderr).text();
-    expect(stderr).not.toContain("falha no lote da outbox");
+    expect(stderr).not.toContain("falha no ciclo do worker");
     expect([0, 128 + 15]).toContain(exitCode);
   }, 30_000);
 });

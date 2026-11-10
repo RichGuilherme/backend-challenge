@@ -74,9 +74,27 @@ export const OutboxMessageRecord = defineEntity({
   },
 });
 
+export const PendingReferenceRecord = defineEntity({
+  name: "PendingReferenceRecord",
+  tableName: "pending_references",
+  properties: {
+    transactionId: p.uuid().primary(),
+    attempts: p.integer(),
+    nextAttemptAt: p.datetime(),
+    expiresAt: p.datetime(),
+  },
+});
+
 export type WalletRow = InferEntity<typeof WalletRecord>;
 export type WagerTransactionRow = InferEntity<typeof WagerTransactionRecord>;
 export type WalletLedgerEntryRow = InferEntity<typeof WalletLedgerEntryRecord>;
 export type OutboxMessageRow = InferEntity<typeof OutboxMessageRecord>;
+export type PendingReferenceRow = InferEntity<typeof PendingReferenceRecord>;
 
-export const persistenceRecords = [WalletRecord, WagerTransactionRecord, WalletLedgerEntryRecord, OutboxMessageRecord];
+export const persistenceRecords = [
+  WalletRecord,
+  WagerTransactionRecord,
+  WalletLedgerEntryRecord,
+  OutboxMessageRecord,
+  PendingReferenceRecord,
+];

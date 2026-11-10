@@ -16,6 +16,10 @@ x-app-environment: &app-environment
   OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-500}
   OUTBOX_RETRY_BASE_MS: ${OUTBOX_RETRY_BASE_MS:-1000}
   OUTBOX_RETRY_CAP_MS: ${OUTBOX_RETRY_CAP_MS:-300000}
+  PENDING_REFERENCE_POLL_INTERVAL_MS: ${PENDING_REFERENCE_POLL_INTERVAL_MS:-1000}
+  PENDING_REFERENCE_TTL_MS: ${PENDING_REFERENCE_TTL_MS:-86400000}
+  PENDING_REFERENCE_RETRY_BASE_MS: ${PENDING_REFERENCE_RETRY_BASE_MS:-2000}
+  PENDING_REFERENCE_RETRY_CAP_MS: ${PENDING_REFERENCE_RETRY_CAP_MS:-600000}
 
 x-app-service: &app-service
   build:
@@ -70,6 +74,12 @@ services:
   outbox-publisher:
     <<: *app-service
     command: ["bun", "run", "src/main/outbox-publisher.ts"]
+    environment:
+      <<: *app-environment
+
+  reference-worker:
+    <<: *app-service
+    command: ["bun", "run", "src/main/reference-worker.ts"]
     environment:
       <<: *app-environment
 
