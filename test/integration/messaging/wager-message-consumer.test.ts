@@ -3,10 +3,13 @@ import {
   ConsumeWagerMessageUseCase,
   type WagerMessage,
 } from "../../../src/application/messaging/consume-wager-message.use-case";
+import { Registry } from "prom-client";
+import { NO_LOGGER } from "../../../src/application/ports/logger";
 import { SubmitWagerTransactionUseCase } from "../../../src/application/wagering/submit-wager-transaction.use-case";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import type { WalletView } from "../../../src/application/wallet/wallet.view";
 import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transaction-kind";
+import { PrometheusMetrics } from "../../../src/infrastructure/observability/prometheus-metrics";
 import { MikroOrmUnitOfWork } from "../../../src/infrastructure/persistence/mikro-orm-unit-of-work";
 import { SqsWagerMessageQueue } from "../../../src/infrastructure/messaging/sqs-wager-message-queue";
 import {
@@ -15,6 +18,7 @@ import {
 } from "../../../src/presentation/messaging/wager-message.consumer";
 import { createTestContext, type TestContext } from "../../support/application";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
+import { sampleOf } from "../../support/metrics";
 import { outboxFor } from "../../support/outbox";
 import { WagerQueueHarness, wagerEnvelope } from "../../support/wager-queue";
 
@@ -22,7 +26,14 @@ let context: TestContext;
 let harness: WagerQueueHarness;
 let openWallet: OpenWalletUseCase;
 
-const silentLogger = { warn: () => undefined };
+const registry = new Registry();
+const metrics = new PrometheusMetrics(registry);
+const observability = { metrics, logger: NO_LOGGER };
+const MAX_RECEIVES = 5;
+
+const metricValue = async (name: string, labels: Record<string, string> = {}) =>
+  (await sampleOf(registry, name, labels)) ?? 0;
+const deadLettered = (reason: string) => metricValue("wagering_dlq_messages_total", { reason });
 const immediateRetry = { baseMs: 1, capMs: 1 };
 
 beforeAll(async () => {
@@ -39,7 +50,7 @@ afterAll(async () => {
 
 function consumerWith(unitOfWork = context.unitOfWork, onConsumed?: () => void) {
   const submit = new SubmitWagerTransactionUseCase(unitOfWork, context.ids, context.clock);
-  const consume = new ConsumeWagerMessageUseCase(unitOfWork, submit, context.clock);
+  const consume = new ConsumeWagerMessageUseCase(unitOfWork, submit, context.clock, metrics);
   const observed = onConsumed
     ? ({
         execute: async (message: WagerMessage) => {
@@ -52,8 +63,8 @@ function consumerWith(unitOfWork = context.unitOfWork, onConsumed?: () => void) 
   return new WagerMessageConsumer(
     new SqsWagerMessageQueue(harness.client, harness.urls),
     observed,
-    { batchSize: 10, waitSeconds: 1, retry: immediateRetry },
-    silentLogger,
+    { batchSize: 10, waitSeconds: 1, retry: immediateRetry, maxReceives: MAX_RECEIVES },
+    observability,
     () => 0,
   );
 }
@@ -103,9 +114,12 @@ describe("consumidor SQS de transações", () => {
   test("processa a mensagem com o mesmo caso de uso do HTTP, grava a inbox e dá ack só depois do commit", async () => {
     const wallet = await open();
     const messageId = `msg-${crypto.randomUUID()}`;
+    const durationsBefore = await metricValue("wagering_processing_duration_seconds_count", { source: "sqs" });
     await harness.send(wagerEnvelope(messageId, wagerData(wallet)), wallet.id, "corr-from-queue");
 
     await pollUntilEmpty(consumerWith());
+
+    expect(await metricValue("wagering_processing_duration_seconds_count", { source: "sqs" })).toBe(durationsBefore + 1);
 
     const [transaction] = await transactionsOf(wallet.id);
     expect(transaction).toMatchObject({ kind: "BET", status: "PROCESSED" });
@@ -181,30 +195,37 @@ describe("consumidor SQS de transações", () => {
 
   describe("mensagem permanente vai direto para a DLQ com o motivo", () => {
     test("JSON inválido", async () => {
+      const before = await deadLettered("INVALID_JSON");
       await harness.send("{ isto não é json", "grupo-invalido");
       await pollUntilEmpty(consumerWith());
       expect(await harness.takeDeadLetters()).toEqual([{ body: "{ isto não é json", failureReason: "INVALID_JSON" }]);
+      expect(await deadLettered("INVALID_JSON")).toBe(before + 1);
       expect(await harness.messagesInQueue()).toEqual({ visible: 0, inFlight: 0 });
     });
 
     test("schema inválido (OPENING pela fila)", async () => {
+      const before = await deadLettered("INVALID_PAYLOAD");
       const wallet = await open();
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet, { kind: "OPENING" })), wallet.id);
       await pollUntilEmpty(consumerWith());
       const [letter] = await harness.takeDeadLetters();
       expect(letter?.failureReason).toStartWith("INVALID_PAYLOAD");
+      expect(await deadLettered("INVALID_PAYLOAD")).toBe(before + 1);
       expect(await transactionsOf(wallet.id)).toHaveLength(0);
     });
 
     test("wallet inexistente", async () => {
+      const before = await deadLettered("WALLET_NOT_FOUND");
       const ghost = { id: crypto.randomUUID(), playerId: "player-fantasma" } as WalletView;
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(ghost)), ghost.id);
       await pollUntilEmpty(consumerWith());
       const [letter] = await harness.takeDeadLetters();
       expect(letter?.failureReason).toContain("não encontrada");
+      expect(await deadLettered("WALLET_NOT_FOUND")).toBe(before + 1);
     });
 
     test("conflito de idempotência", async () => {
+      const before = await deadLettered("IDEMPOTENCY_CONFLICT");
       const wallet = await open();
       const data = wagerData(wallet);
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, data), wallet.id);
@@ -215,6 +236,7 @@ describe("consumidor SQS de transações", () => {
       await pollUntilEmpty(consumerWith());
       const [letter] = await harness.takeDeadLetters();
       expect(letter?.failureReason).toContain("outro payload");
+      expect(await deadLettered("IDEMPOTENCY_CONFLICT")).toBe(before + 1);
       expect(await transactionsOf(wallet.id)).toHaveLength(1);
     });
   });
@@ -241,9 +263,11 @@ describe("consumidor SQS de transações", () => {
       const wallet = await open();
       const impatient = consumerWith(new MikroOrmUnitOfWork(context.orm, 100));
       const releaseLock = await holdWalletLock(wallet.id);
+      const retriesBefore = await metricValue("wagering_message_retries_total");
       await harness.send(wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet)), wallet.id);
 
       await impatient.pollOnce();
+      expect(await metricValue("wagering_message_retries_total")).toBe(retriesBefore + 1);
       expect(await transactionsOf(wallet.id)).toHaveLength(0);
       expect(await harness.takeDeadLetters(1_500)).toHaveLength(0);
 
@@ -258,10 +282,15 @@ describe("consumidor SQS de transações", () => {
       const impatient = consumerWith(new MikroOrmUnitOfWork(context.orm, 100));
       const releaseLock = await holdWalletLock(wallet.id);
       const body = wagerEnvelope(`msg-${crypto.randomUUID()}`, wagerData(wallet));
+      const retriesBefore = await metricValue("wagering_message_retries_total");
+      const exhaustedBefore = await deadLettered("RETRIES_EXHAUSTED");
       await harness.send(body, wallet.id);
 
       for (let attempt = 0; attempt < 7; attempt += 1) await impatient.pollOnce();
       await releaseLock();
+
+      expect(await metricValue("wagering_message_retries_total")).toBe(retriesBefore + MAX_RECEIVES - 1);
+      expect(await deadLettered("RETRIES_EXHAUSTED")).toBe(exhaustedBefore + 1);
 
       const letters = await harness.takeDeadLetters();
       expect(letters.map((letter) => letter.body)).toEqual([body]);

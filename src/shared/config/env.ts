@@ -105,3 +105,24 @@ export function loadConsumerConfig(env: Env = process.env): ConsumerConfig {
     },
   };
 }
+
+export interface LoggingConfig {
+  service: string;
+  level: string;
+}
+
+export function loadLoggingConfig(env: Env = process.env): LoggingConfig {
+  return { service: env.SERVICE_NAME || "wagering", level: env.LOG_LEVEL || "info" };
+}
+
+export function loadHealthTimeoutMs(env: Env = process.env): number {
+  return requirePositiveInteger("HEALTH_CHECK_TIMEOUT_MS", env);
+}
+
+export function loadOpsPort(env: Env = process.env): number {
+  return requirePositiveInteger("OPS_PORT", env);
+}
+
+export function loadMaxReceives(env: Env = process.env): number {
+  return requirePositiveInteger("SQS_MAX_RECEIVE_COUNT", env);
+}

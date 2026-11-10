@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Headers, HttpStatus, Inject, Param, Post, Res } from "@nestjs/common";
+import { METRICS, type Metrics } from "../../application/ports/metrics";
 import { GetWagerTransactionUseCase } from "../../application/wagering/get-wager-transaction.use-case";
 import { SubmitWagerTransactionUseCase } from "../../application/wagering/submit-wager-transaction.use-case";
 import type { SubmissionResult, WagerTransactionView } from "../../application/wagering/wager-transaction.view";
@@ -30,6 +31,7 @@ export class WageringTransactionsController {
   constructor(
     @Inject(SubmitWagerTransactionUseCase) private readonly submitTransaction: SubmitWagerTransactionUseCase,
     @Inject(GetWagerTransactionUseCase) private readonly getTransaction: GetWagerTransactionUseCase,
+    @Inject(METRICS) private readonly metrics: Metrics,
   ) {}
 
   @Post("wagering/transactions")
@@ -40,11 +42,13 @@ export class WageringTransactionsController {
     @Res({ passthrough: true }) response: StatusResponse,
   ): Promise<SubmissionResult> {
     const idempotencyKey = idempotencyKeyPipe.transform(rawIdempotencyKey);
+    const startedAt = performance.now();
     const result = await this.submitTransaction.execute({
       ...body,
       idempotencyKey,
       correlationId: resolveCorrelationId(correlationHeader),
     });
+    this.metrics.processingDuration("http", (performance.now() - startedAt) / 1_000);
     const httpStatus = HTTP_STATUS_BY_RESULT[result.status];
     if (httpStatus === undefined) throw new Error(`Status de submissão sem mapeamento HTTP: ${result.status}`);
     response.status(httpStatus);

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
+import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 import { WagerQueueHarness, wagerEnvelope } from "../../support/wager-queue";
 
@@ -45,11 +46,8 @@ describe("processo consumer", () => {
       wallet.id,
     );
 
-    const child = Bun.spawn(["bun", "run", ENTRYPOINT], {
-      env: { ...process.env, DB_NAME: testDatabaseConfig().name },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const service = new ServiceProcess(ENTRYPOINT, { DB_NAME: testDatabaseConfig().name }, "OPS_PORT");
+    let terminated!: Promise<TerminatedService>;
 
     try {
       const deadline = Date.now() + 15_000;
@@ -59,13 +57,12 @@ describe("processo consumer", () => {
         if (Date.now() > deadline) throw new Error("mensagem não consumida no prazo");
         await Bun.sleep(100);
       }
+      await service.expectOperational();
     } finally {
-      child.kill("SIGTERM");
+      terminated = service.terminate();
     }
 
-    const exitCode = await child.exited;
-    expect(await new Response(child.stderr).text()).not.toContain("falha no ciclo do worker");
-    expect([0, 128 + 15]).toContain(exitCode);
+    expectCleanShutdown(await terminated, "consumer iniciado", "consumer encerrado");
     expect(await harness.messagesInQueue()).toEqual({ visible: 0, inFlight: 0 });
     await expectWalletMatchesLedger(context.sql, wallet.id);
   }, 30_000);

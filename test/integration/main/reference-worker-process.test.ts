@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, test } from "bun:test";
 import { resolve } from "node:path";
 import { DEFAULT_PENDING_REFERENCE_POLICY } from "../../../src/application/wagering/pending-reference";
 import { SubmitWagerTransactionUseCase } from "../../../src/application/wagering/submit-wager-transaction.use-case";
@@ -7,6 +7,7 @@ import { WagerTransactionKind } from "../../../src/domain/wagering/wager-transac
 import { createTestContext, type TestContext } from "../../support/application";
 import { submitCommand } from "../../support/commands";
 import { testDatabaseConfig } from "../../support/database";
+import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { expectWalletMatchesLedger } from "../../support/ledger-invariant";
 
 const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/reference-worker.ts");
@@ -48,11 +49,12 @@ describe("processo reference-worker", () => {
     );
     await submit.execute(bet);
 
-    const child = Bun.spawn(["bun", "run", ENTRYPOINT], {
-      env: { ...process.env, DB_NAME: testDatabaseConfig().name, PENDING_REFERENCE_POLL_INTERVAL_MS: "100" },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const service = new ServiceProcess(
+      ENTRYPOINT,
+      { DB_NAME: testDatabaseConfig().name, PENDING_REFERENCE_POLL_INTERVAL_MS: "100" },
+      "OPS_PORT",
+    );
+    let terminated!: Promise<TerminatedService>;
 
     try {
       const deadline = Date.now() + 15_000;
@@ -60,13 +62,12 @@ describe("processo reference-worker", () => {
         if (Date.now() > deadline) throw new Error("reversão não foi resolvida no prazo");
         await Bun.sleep(100);
       }
+      await service.expectOperational();
     } finally {
-      child.kill("SIGTERM");
+      terminated = service.terminate();
     }
 
-    const exitCode = await child.exited;
-    expect(await new Response(child.stderr).text()).not.toContain("falha no ciclo do worker");
-    expect([0, 128 + 15]).toContain(exitCode);
+    expectCleanShutdown(await terminated, "reference-worker iniciado", "reference-worker encerrado");
     await expectWalletMatchesLedger(context.sql, wallet.id);
   }, 30_000);
 });

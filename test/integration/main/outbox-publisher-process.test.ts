@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, test } from "bun:test";
 import { resolve } from "node:path";
 import { OpenWalletUseCase } from "../../../src/application/wallet/open-wallet.use-case";
 import { createTestContext, type TestContext } from "../../support/application";
 import { testDatabaseConfig } from "../../support/database";
+import { ServiceProcess, expectCleanShutdown, type TerminatedService } from "../../support/service-process";
 import { outboxByPartition } from "../../support/outbox";
 
 const ENTRYPOINT = resolve(import.meta.dir, "../../../src/main/outbox-publisher.ts");
@@ -31,24 +32,23 @@ describe("processo outbox-publisher", () => {
       correlationId: "corr-process",
     });
 
-    const child = Bun.spawn(["bun", "run", ENTRYPOINT], {
-      env: { ...process.env, DB_NAME: testDatabaseConfig().name, OUTBOX_POLL_INTERVAL_MS: "100" },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const service = new ServiceProcess(
+      ENTRYPOINT,
+      { DB_NAME: testDatabaseConfig().name, OUTBOX_POLL_INTERVAL_MS: "100" },
+      "OPS_PORT",
+    );
+    let terminated!: Promise<TerminatedService>;
 
     try {
       await waitUntil(
         async () => (await outboxByPartition(context.sql, wallet.id)).every((row) => row.published_at !== null),
         15_000,
       );
+      await service.expectOperational();
     } finally {
-      child.kill("SIGTERM");
+      terminated = service.terminate();
     }
 
-    const exitCode = await child.exited;
-    const stderr = await new Response(child.stderr).text();
-    expect(stderr).not.toContain("falha no ciclo do worker");
-    expect([0, 128 + 15]).toContain(exitCode);
+    expectCleanShutdown(await terminated, "outbox-publisher iniciado", "outbox-publisher encerrado");
   }, 30_000);
 });

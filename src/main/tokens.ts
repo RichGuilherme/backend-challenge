@@ -6,3 +6,8 @@ export const OUTBOX_PUBLISHER_WORKER = Symbol("OutboxPublisherWorker");
 export const REFERENCE_WORKER = Symbol("ReferenceWorker");
 export const WAGER_CONSUMER_WORKER = Symbol("WagerConsumerWorker");
 export const METRICS_REGISTRY = Symbol("MetricsRegistry");
+export { METRICS } from "../application/ports/metrics";
+export const LOGGER = Symbol("Logger");
+export const OBSERVABILITY = Symbol("Observability");
+export const OPS_SERVER = Symbol("OpsServer");
+export const HEALTH_SQS_CLIENT = Symbol("HealthSqsClient");

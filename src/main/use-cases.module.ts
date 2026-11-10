@@ -3,6 +3,8 @@ import { MikroORM } from "@mikro-orm/postgresql";
 import type { Registry } from "prom-client";
 import type { Clock } from "../application/ports/clock";
 import type { IdGenerator } from "../application/ports/id-generator";
+import type { Logger } from "../application/ports/logger";
+import type { Observability } from "../application/ports/observability";
 import type { UnitOfWork } from "../application/ports/unit-of-work";
 import { GetWagerTransactionUseCase } from "../application/wagering/get-wager-transaction.use-case";
 import { SubmitWagerTransactionUseCase } from "../application/wagering/submit-wager-transaction.use-case";
@@ -18,7 +20,7 @@ import { UuidV7IdGenerator } from "../infrastructure/system/uuid-v7-id-generator
 import { loadPendingReferenceConfig } from "../shared/config/env";
 import { ObservabilityModule } from "./observability.module";
 import { PersistenceModule } from "./persistence.module";
-import { CLOCK, ID_GENERATOR, METRICS_REGISTRY, UNIT_OF_WORK } from "./tokens";
+import { CLOCK, ID_GENERATOR, LOGGER, OBSERVABILITY, METRICS_REGISTRY, UNIT_OF_WORK } from "./tokens";
 
 @Module({
   imports: [PersistenceModule, ObservabilityModule],
@@ -38,9 +40,16 @@ import { CLOCK, ID_GENERATOR, METRICS_REGISTRY, UNIT_OF_WORK } from "./tokens";
     },
     {
       provide: SubmitWagerTransactionUseCase,
-      inject: [UNIT_OF_WORK, ID_GENERATOR, CLOCK],
-      useFactory: (unitOfWork: UnitOfWork, ids: IdGenerator, clock: Clock) =>
-        new SubmitWagerTransactionUseCase(unitOfWork, ids, clock, loadPendingReferenceConfig().policy),
+      inject: [UNIT_OF_WORK, ID_GENERATOR, CLOCK, OBSERVABILITY],
+      useFactory: (unitOfWork: UnitOfWork, ids: IdGenerator, clock: Clock, observability: Observability) =>
+        new SubmitWagerTransactionUseCase(
+          unitOfWork,
+          ids,
+          clock,
+          loadPendingReferenceConfig().policy,
+          Math.random,
+          observability,
+        ),
     },
     {
       provide: GetWagerTransactionUseCase,
@@ -54,9 +63,9 @@ import { CLOCK, ID_GENERATOR, METRICS_REGISTRY, UNIT_OF_WORK } from "./tokens";
     },
     {
       provide: ReconcileWalletUseCase,
-      inject: [MikroORM, METRICS_REGISTRY],
-      useFactory: (orm: MikroORM, registry: Registry) =>
-        new ReconcileWalletUseCase(new SqlReconciliationQuery(orm.em), new PrometheusDivergenceAlert(registry)),
+      inject: [MikroORM, METRICS_REGISTRY, LOGGER],
+      useFactory: (orm: MikroORM, registry: Registry, logger: Logger) =>
+        new ReconcileWalletUseCase(new SqlReconciliationQuery(orm.em), new PrometheusDivergenceAlert(registry, logger)),
     },
   ],
   exports: [

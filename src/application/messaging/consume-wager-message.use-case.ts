@@ -1,4 +1,5 @@
 import type { Clock } from "../ports/clock";
+import { NO_METRICS, type Metrics } from "../ports/metrics";
 import { DuplicateInboxMessageError } from "../ports/inbox.repository";
 import type { UnitOfWork } from "../ports/unit-of-work";
 import { computePayloadHash } from "../wagering/payload-hash";
@@ -22,10 +23,12 @@ export class ConsumeWagerMessageUseCase {
     private readonly unitOfWork: UnitOfWork,
     private readonly submit: SubmitWagerTransactionUseCase,
     private readonly clock: Clock,
+    private readonly metrics: Metrics = NO_METRICS,
   ) {}
 
   async execute(message: WagerMessage): Promise<ConsumeOutcome> {
     if (await this.alreadyProcessed(message)) return { kind: "DUPLICATE" };
+    const startedAt = performance.now();
     const receivedAt = this.clock.now();
     try {
       const result = await this.submit.execute(message.command, {
@@ -40,6 +43,7 @@ export class ConsumeWagerMessageUseCase {
           await scope.inbox.add(inbox);
         },
       });
+      this.metrics.processingDuration("sqs", (performance.now() - startedAt) / 1_000);
       return { kind: "PROCESSED", result };
     } catch (error) {
       if (error instanceof DuplicateInboxMessageError) return { kind: "DUPLICATE" };

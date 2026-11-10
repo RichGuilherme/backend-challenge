@@ -17,8 +17,12 @@ afterAll(() => context?.close());
 describe("ReconcileWalletUseCase", () => {
   test("divergência é logada e contada na métrica; wallet consistente não conta", async () => {
     const registry = new Registry();
-    const logs: Record<string, unknown>[] = [];
-    const alert = new PrometheusDivergenceAlert(registry, (entry) => logs.push(entry));
+    const logs: { message: string; fields: Record<string, unknown> }[] = [];
+    const alert = new PrometheusDivergenceAlert(registry, {
+      info: () => undefined,
+      warn: () => undefined,
+      error: (message, fields = {}) => logs.push({ message, fields }),
+    });
     const reconcile = new ReconcileWalletUseCase(new SqlReconciliationQuery(context.orm.em), alert);
     const open = new OpenWalletUseCase(context.unitOfWork, context.ids, context.clock);
     const healthy = await open.execute({
@@ -43,14 +47,15 @@ describe("ReconcileWalletUseCase", () => {
     const counter = await registry.getSingleMetric("wagering_reconciliation_divergences_total")?.get();
     expect(counter?.values.map((value) => value.value)).toEqual([1]);
     expect(logs).toEqual([
-      expect.objectContaining({
-        level: "error",
-        msg: "divergência entre saldo e ledger",
-        walletId: broken.id,
-        storedBalance: "12.34",
-        calculatedBalance: "10.00",
-        difference: "2.34",
-      }),
+      {
+        message: "divergência entre saldo e ledger",
+        fields: expect.objectContaining({
+          walletId: broken.id,
+          storedBalance: "12.34",
+          calculatedBalance: "10.00",
+          difference: "2.34",
+        }),
+      },
     ]);
   });
 });

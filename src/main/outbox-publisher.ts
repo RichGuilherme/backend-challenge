@@ -1,6 +1,4 @@
-import "reflect-metadata";
-import { NestFactory } from "@nestjs/core";
+import { bootstrapWorker } from "./bootstrap-worker";
 import { OutboxPublisherModule } from "./outbox-publisher.module";
 
-const app = await NestFactory.createApplicationContext(OutboxPublisherModule);
-app.enableShutdownHooks();
+await bootstrapWorker(OutboxPublisherModule);

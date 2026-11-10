@@ -1,6 +1,7 @@
 import { DeadlockException, DriverException, LockWaitTimeoutException } from "@mikro-orm/core";
 import type { MikroORM } from "@mikro-orm/postgresql";
 import type { TransactionScope, UnitOfWork } from "../../application/ports/unit-of-work";
+import { NO_METRICS, type Metrics } from "../../application/ports/metrics";
 import { TransientFailureError } from "../../application/shared/application-error";
 import { MikroOrmInboxRepository } from "./mikro-orm-inbox.repository";
 import { MikroOrmOutboxRepository } from "./mikro-orm-outbox.repository";
@@ -14,6 +15,7 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
   constructor(
     private readonly orm: MikroORM,
     private readonly lockTimeoutMs: number,
+    private readonly metrics: Metrics = NO_METRICS,
   ) {
     if (!Number.isInteger(lockTimeoutMs) || lockTimeoutMs <= 0) {
       throw new Error(`lock_timeout inválido: ${lockTimeoutMs}`);
@@ -33,7 +35,10 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
         });
       });
     } catch (error) {
-      if (isTransient(error)) throw new TransientFailureError(`Falha transitória no banco: ${error.message}`);
+      if (isTransient(error)) {
+        this.metrics.lockConflict();
+        throw new TransientFailureError(`Falha transitória no banco: ${error.message}`);
+      }
       throw error;
     }
   }

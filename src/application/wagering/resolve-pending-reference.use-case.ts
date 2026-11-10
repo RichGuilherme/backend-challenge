@@ -8,6 +8,7 @@ import type { RandomSource } from "../messaging/full-jitter";
 import { outboxMessagesForSettlement } from "../messaging/settlement-events";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
+import { NO_OBSERVABILITY, type Observability } from "../ports/observability";
 import type { TransactionScope, UnitOfWork } from "../ports/unit-of-work";
 import {
   DEFAULT_PENDING_REFERENCE_POLICY,
@@ -16,6 +17,11 @@ import {
 } from "./pending-reference";
 
 export type ResolutionOutcome = "PROCESSED" | "REJECTED" | "RESCHEDULED";
+
+interface Resolution {
+  outcome: ResolutionOutcome;
+  transaction: WagerTransaction;
+}
 
 export class ResolvePendingReferenceUseCase {
   private readonly settlement = new WagerSettlement();
@@ -26,18 +32,39 @@ export class ResolvePendingReferenceUseCase {
     private readonly clock: Clock,
     private readonly policy: PendingReferencePolicy = DEFAULT_PENDING_REFERENCE_POLICY,
     private readonly random: RandomSource = Math.random,
+    private readonly observability: Observability = NO_OBSERVABILITY,
   ) {}
 
-  execute(): Promise<ResolutionOutcome | undefined> {
-    return this.unitOfWork.run(async (scope) => {
+  async execute(): Promise<ResolutionOutcome | undefined> {
+    const startedAt = performance.now();
+    const resolved = await this.unitOfWork.run(async (scope) => {
       const now = this.clock.now();
       const pending = await scope.pendingReferences.claimNextDue(now);
       if (!pending) return undefined;
       return this.resolve(scope, pending, now);
     });
+    if (!resolved) return undefined;
+    this.observe(resolved, (performance.now() - startedAt) / 1_000);
+    return resolved.outcome;
   }
 
-  private async resolve(scope: TransactionScope, pending: PendingReference, now: Date): Promise<ResolutionOutcome> {
+  private observe({ outcome, transaction }: Resolution, seconds: number): void {
+    const { metrics, logger } = this.observability;
+    if (outcome !== "RESCHEDULED") metrics.transactionSettled(transaction.kind, transaction.status);
+    metrics.processingDuration("reference-worker", seconds);
+    logger.info("referência pendente resolvida", {
+      correlationId: transaction.id,
+      transactionId: transaction.id,
+      walletId: transaction.walletId,
+      providerId: transaction.provider.providerId,
+      kind: transaction.kind,
+      status: transaction.status,
+      failureCode: transaction.failureCode,
+      outcome,
+    });
+  }
+
+  private async resolve(scope: TransactionScope, pending: PendingReference, now: Date): Promise<Resolution> {
     const transaction = await this.load(scope, pending.transactionId);
     const wallet = await this.lockWallet(scope, transaction);
     const reference = await scope.transactions.findByProviderReference(
@@ -57,7 +84,7 @@ export class ResolvePendingReferenceUseCase {
       if (!pending.isExpired(now)) {
         pending.reschedule(now, this.policy, this.random);
         await scope.pendingReferences.save(pending);
-        return "RESCHEDULED";
+        return { outcome: "RESCHEDULED", transaction };
       }
       transaction.reject({ code: FailureCode.ReferenceNotFound, at: now, observedBalance: wallet.balance });
     }
@@ -74,7 +101,8 @@ export class ResolvePendingReferenceUseCase {
         eventContextFactory({ correlationId: transaction.id }, this.ids, now),
       ),
     );
-    return transaction.status === WagerTransactionStatus.Processed ? "PROCESSED" : "REJECTED";
+    const outcome = transaction.status === WagerTransactionStatus.Processed ? "PROCESSED" : "REJECTED";
+    return { outcome, transaction };
   }
 
   private async load(scope: TransactionScope, transactionId: string): Promise<WagerTransaction> {

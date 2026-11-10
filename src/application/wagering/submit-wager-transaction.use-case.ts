@@ -10,6 +10,7 @@ import type { RandomSource } from "../messaging/full-jitter";
 import { outboxMessagesForSettlement } from "../messaging/settlement-events";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
+import { NO_OBSERVABILITY, type Observability } from "../ports/observability";
 import type { TransactionScope, UnitOfWork } from "../ports/unit-of-work";
 import { WalletNotFoundError, WalletPlayerMismatchError } from "../wallet/wallet.errors";
 import { DEFAULT_PENDING_REFERENCE_POLICY, PendingReference, type PendingReferencePolicy } from "./pending-reference";
@@ -35,9 +36,19 @@ export class SubmitWagerTransactionUseCase {
     private readonly clock: Clock,
     private readonly pendingReferencePolicy: PendingReferencePolicy = DEFAULT_PENDING_REFERENCE_POLICY,
     private readonly random: RandomSource = Math.random,
+    private readonly observability: Observability = NO_OBSERVABILITY,
   ) {}
 
   async execute(command: SubmitWagerTransactionCommand, options: SubmitOptions = {}): Promise<SubmissionResult> {
+    const result = await this.submitOrReplay(command, options);
+    this.observe(command, result);
+    return result;
+  }
+
+  private async submitOrReplay(
+    command: SubmitWagerTransactionCommand,
+    options: SubmitOptions,
+  ): Promise<SubmissionResult> {
     const payloadHash = computePayloadHash(command);
     try {
       return await this.runWith(options, (scope) => this.submit(scope, command, payloadHash));
@@ -45,6 +56,23 @@ export class SubmitWagerTransactionUseCase {
       if (!(error instanceof DuplicateWagerTransactionError)) throw error;
       return this.runWith(options, (scope) => this.replayAfterRace(scope, command, payloadHash));
     }
+  }
+
+  private observe(command: SubmitWagerTransactionCommand, result: SubmissionResult): void {
+    const { metrics, logger } = this.observability;
+    if (result.idempotentReplay) metrics.idempotentReplay();
+    else metrics.transactionSettled(command.kind, result.status);
+    logger.info("transação submetida", {
+      correlationId: command.correlationId,
+      messageId: command.causationId,
+      transactionId: result.transactionId,
+      walletId: command.walletId,
+      providerId: command.providerId,
+      kind: command.kind,
+      status: result.status,
+      failureCode: result.failureCode,
+      idempotentReplay: result.idempotentReplay,
+    });
   }
 
   private runWith(

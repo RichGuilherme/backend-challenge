@@ -1,6 +1,4 @@
-import "reflect-metadata";
-import { NestFactory } from "@nestjs/core";
+import { bootstrapWorker } from "./bootstrap-worker";
 import { ConsumerModule } from "./consumer.module";
 
-const app = await NestFactory.createApplicationContext(ConsumerModule);
-app.enableShutdownHooks();
+await bootstrapWorker(ConsumerModule);
