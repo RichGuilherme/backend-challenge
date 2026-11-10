@@ -21,6 +21,12 @@ const envelopeOf = <T>(aggregateId: string, data: T, context: EventContext) => (
   data,
 });
 
+abstract class WalletScopedEvent<T extends { walletId: string }> extends IntegrationEvent<T> {
+  get partitionKey(): string {
+    return this.data.walletId;
+  }
+}
+
 export interface WalletBalanceChangedData {
   walletId: string;
   transactionId: string;
@@ -31,13 +37,9 @@ export interface WalletBalanceChangedData {
   walletVersion: number;
 }
 
-export class WalletBalanceChanged extends IntegrationEvent<WalletBalanceChangedData> {
+export class WalletBalanceChanged extends WalletScopedEvent<WalletBalanceChangedData> {
   readonly eventType = "WalletBalanceChanged";
   readonly version = 1;
-
-  get partitionKey(): string {
-    return this.data.walletId;
-  }
 
   static from(wallet: Wallet, entry: WalletLedgerEntry, context: EventContext): WalletBalanceChanged {
     return new WalletBalanceChanged(
@@ -97,13 +99,9 @@ export interface WagerTransactionProcessedData extends WagerTransactionData {
   processedAt: string;
 }
 
-export class WagerTransactionProcessed extends IntegrationEvent<WagerTransactionProcessedData> {
+export class WagerTransactionProcessed extends WalletScopedEvent<WagerTransactionProcessedData> {
   readonly eventType = "WagerTransactionProcessed";
   readonly version = 1;
-
-  get partitionKey(): string {
-    return this.data.walletId;
-  }
 
   static from(transaction: WagerTransaction, context: EventContext): WagerTransactionProcessed {
     return new WagerTransactionProcessed(
@@ -128,13 +126,9 @@ export interface WagerTransactionRejectedData extends WagerTransactionData {
   processedAt: string;
 }
 
-export class WagerTransactionRejected extends IntegrationEvent<WagerTransactionRejectedData> {
+export class WagerTransactionRejected extends WalletScopedEvent<WagerTransactionRejectedData> {
   readonly eventType = "WagerTransactionRejected";
   readonly version = 1;
-
-  get partitionKey(): string {
-    return this.data.walletId;
-  }
 
   static from(transaction: WagerTransaction, context: EventContext): WagerTransactionRejected {
     return new WagerTransactionRejected(
@@ -157,13 +151,9 @@ export interface WagerTransactionPendingReferenceData extends WagerTransactionDa
   referenceExternalTransactionId: string;
 }
 
-export class WagerTransactionPendingReference extends IntegrationEvent<WagerTransactionPendingReferenceData> {
+export class WagerTransactionPendingReference extends WalletScopedEvent<WagerTransactionPendingReferenceData> {
   readonly eventType = "WagerTransactionPendingReference";
   readonly version = 1;
-
-  get partitionKey(): string {
-    return this.data.walletId;
-  }
 
   static from(transaction: WagerTransaction, context: EventContext): WagerTransactionPendingReference {
     return new WagerTransactionPendingReference(
