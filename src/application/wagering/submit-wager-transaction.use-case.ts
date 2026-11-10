@@ -144,7 +144,7 @@ export class SubmitWagerTransactionUseCase {
     command: SubmitWagerTransactionCommand,
     payloadHash: string,
   ): Promise<WagerTransaction | undefined> {
-    const byKey = await scope.transactions.findByIdempotencyKey(command.idempotencyKey);
+    const byKey = await scope.transactions.findByIdempotencyKey(command.providerId, command.idempotencyKey);
     if (byKey) {
       if (!byKey.matchesPayload(payloadHash)) {
         throw new IdempotencyConflictError(command.idempotencyKey, "PAYLOAD_MISMATCH");

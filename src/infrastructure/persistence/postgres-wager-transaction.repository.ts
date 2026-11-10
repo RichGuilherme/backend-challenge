@@ -15,8 +15,8 @@ export class PostgresWagerTransactionRepository implements WagerTransactionRepos
     return this.findOne({ id });
   }
 
-  findByIdempotencyKey(idempotencyKey: string): Promise<WagerTransaction | undefined> {
-    return this.findOne({ idempotencyKey });
+  findByIdempotencyKey(providerId: string, idempotencyKey: string): Promise<WagerTransaction | undefined> {
+    return this.findOne({ providerId, idempotencyKey });
   }
 
   findByProviderReference(providerId: string, externalTransactionId: string): Promise<WagerTransaction | undefined> {

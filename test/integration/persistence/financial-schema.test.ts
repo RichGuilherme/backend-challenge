@@ -245,13 +245,25 @@ describe("schema financeiro", () => {
       );
     });
 
-    test("idempotency key única", async () => {
+    test("idempotency key única dentro do mesmo provedor", async () => {
       const { walletId } = await seedWallet();
       const tx = transactionRow(walletId);
       await insert(sql, "wager_transactions", tx);
       await expectConstraint(
         insert(sql, "wager_transactions", transactionRow(walletId, { idempotency_key: tx.idempotency_key })),
-        "wager_transactions_idempotency_key_unique",
+        "wager_transactions_provider_idempotency_key_unique",
+      );
+    });
+
+    test("a mesma idempotency key é aceita em provedores diferentes", async () => {
+      const { walletId } = await seedWallet();
+      const tx = transactionRow(walletId);
+      await insert(sql, "wager_transactions", tx);
+
+      await insert(
+        sql,
+        "wager_transactions",
+        transactionRow(walletId, { provider_id: "provider-b", idempotency_key: tx.idempotency_key }),
       );
     });
 

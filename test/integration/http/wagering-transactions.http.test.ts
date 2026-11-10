@@ -130,6 +130,20 @@ describe("POST /wagering/transactions", () => {
     expect(response.body).toMatchObject({ error: "IDEMPOTENCY_CONFLICT", reason: "PAYLOAD_MISMATCH" });
   });
 
+  test("a mesma Idempotency-Key em provedores diferentes não conflita", async () => {
+    const wallet = await openWallet("1000.00");
+    const first = transactionBody(wallet, { providerId: "provider-a" });
+    const second = transactionBody(wallet, { providerId: "provider-b" });
+
+    const responseA = await submit(first, "chave-compartilhada");
+    const responseB = await submit(second, "chave-compartilhada");
+
+    expect([responseA.status, responseB.status]).toEqual([200, 200]);
+    expect(responseB.body.transactionId).not.toBe(responseA.body.transactionId);
+    expect(responseB.body).toMatchObject({ idempotentReplay: false, balance: { amount: "950.00" } });
+    await expectWalletMatchesLedger(context.sql, wallet.id);
+  });
+
   test("409 para a mesma transação do provedor com outra chave", async () => {
     const wallet = await openWallet();
     const body = transactionBody(wallet);
